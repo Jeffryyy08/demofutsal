@@ -2,6 +2,7 @@
 'use server'
 
 import { revalidatePath } from 'next/cache'
+import { createClient } from '@/lib/supabase-server'
 import {
   // CRUD Jugadores
   getPlayersByTeam,
@@ -655,11 +656,13 @@ export async function registerRedCardAction(
  * Verificar elegibilidad y aplicar forfeit si es necesario
  */
 export async function processMatchStartAction(
+  
   matchId: string,
   teamAId: string,
   teamBId: string,
   tournamentId: string
 ) {
+  const supabase = await createClient()
   try {
     // 1. Verificar elegibilidad de ambos equipos
     const eligibility = await checkMatchEligibility(teamAId, teamBId, tournamentId)
@@ -692,7 +695,7 @@ export async function processMatchStartAction(
       return {
         success: true,
         forfeit: true,
-        message: `Partido finalizado por forfeit: ${eligibility.forfet.score}`,
+        message: `Partido finalizado por forfeit: ${eligibility.forfeit.score}`,
         data: eligibility,
       }
     }
