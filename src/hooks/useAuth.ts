@@ -11,14 +11,15 @@ export function useAuth() {
 
   useEffect(() => {
     const getSession = async () => {
-      const {  { user } } = await supabase.auth.getUser()
+      const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
       setLoading(false)
     }
 
     getSession()
 
-    const {  } = supabase.auth.onAuthStateChange((_event, session) => {
+    // ✅ CORRECTO: destructuring anidado
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null)
     })
 

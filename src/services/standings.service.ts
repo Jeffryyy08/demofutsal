@@ -3,6 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { TeamStandings } from '@/types'
 
 // Tipo para el resultado de la consulta con join
+// ✅ Tipo correcto - teams es array
 type TournamentTeamWithTeam = {
   group_label: string | null
   is_confirmed: boolean
@@ -11,7 +12,7 @@ type TournamentTeamWithTeam = {
     name: string
     section: string
     subgroup: string | null
-  }[]
+  }[]  // ← Array
 }
 
 // ✅ FUNCIÓN NUEVA: Calcular promedio de puntos (para grupos desbalanceados)
@@ -27,7 +28,7 @@ export async function getBestSecondPlaces(
 ): Promise<TeamStandings[]> {
   // Obtener todos los segundos lugares de cada grupo
   const secondPlaces: TeamStandings[] = []
-  
+
   Object.values(standings).forEach(groupStandings => {
     // Ordenar primero para asegurar que el índice 1 es realmente el 2° lugar
     const sorted = [...groupStandings].sort((a, b) => {
@@ -36,33 +37,33 @@ export async function getBestSecondPlaces(
       if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for
       return a.team_name.localeCompare(b.team_name)
     })
-    
+
     if (sorted.length >= 2) {
       secondPlaces.push(sorted[1]) // Índice 1 = 2° lugar
     }
   })
-  
+
   // Ordenar por PROMEDIO de puntos (no puntos totales) - Aprobado por el profe
   secondPlaces.sort((a, b) => {
     // 1. Promedio de puntos (descendente)
     const avgA = calculateAveragePoints(a)
     const avgB = calculateAveragePoints(b)
     if (avgB !== avgA) return avgB - avgA
-    
+
     // 2. Diferencia de goles (descendente)
     if (b.goal_difference !== a.goal_difference) {
       return b.goal_difference - a.goal_difference
     }
-    
+
     // 3. Goles a favor (descendente)
     if (b.goals_for !== a.goals_for) {
       return b.goals_for - a.goals_for
     }
-    
+
     // 4. Nombre (alfabético)
     return a.team_name.localeCompare(b.team_name)
   })
-  
+
   // Retornar los mejores N segundos
   return secondPlaces.slice(0, count)
 }
@@ -73,7 +74,7 @@ export async function getBestThirdPlaces(
   count: number = 2
 ): Promise<TeamStandings[]> {
   const thirdPlaces: TeamStandings[] = []
-  
+
   Object.values(standings).forEach(groupStandings => {
     const sorted = [...groupStandings].sort((a, b) => {
       if (b.points !== a.points) return b.points - a.points
@@ -81,12 +82,12 @@ export async function getBestThirdPlaces(
       if (b.goals_for !== a.goals_for) return b.goals_for - a.goals_for
       return a.team_name.localeCompare(b.team_name)
     })
-    
+
     if (sorted.length >= 3) {
       thirdPlaces.push(sorted[2]) // Índice 2 = 3° lugar
     }
   })
-  
+
   // Mismo ordenamiento por promedio
   thirdPlaces.sort((a, b) => {
     const avgA = calculateAveragePoints(a)
@@ -100,7 +101,7 @@ export async function getBestThirdPlaces(
     }
     return a.team_name.localeCompare(b.team_name)
   })
-  
+
   return thirdPlaces.slice(0, count)
 }
 
@@ -162,7 +163,7 @@ export async function getStandingsByTournament(tournamentId: string): Promise<Re
   tournamentTeams
     .filter(tt => tt.is_confirmed && tt.teams)
     .forEach(tt => {
-      const team = tt.teams  // ✅ Acceder directamente (es objeto, no array)
+      const team = tt.teams[0]  // ✅ Extraer primer elemento del array
 
       if (team && team.id) {
         console.log(`➕ Agregando equipo: ${team.name} (${team.id}) al grupo ${tt.group_label}`)
