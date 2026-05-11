@@ -222,14 +222,17 @@ export default async function DashboardPage() {
 
             {safeActiveTournaments.length > 0 ? (
               <div className="space-y-4">
-                {safeActiveTournaments.map((tournament: Tournament) => {
-                  // ✅ Extraer primera categoría (array → objeto)
+                {safeActiveTournaments.map((tournament, index) => {
+                  // ✅ Extraer datos correctamente (Supabase devuelve arrays)
                   const firstCategory = Array.isArray(tournament.category)
                     ? tournament.category[0]
                     : tournament.category
-
                   // ✅ tournament_teams ya es número
-                  const teamCount = tournament.tournament_teams || 0
+                  const teamCount = Array.isArray(tournament.tournament_teams)
+                    ? tournament.tournament_teams.length
+                    : typeof tournament.tournament_teams === 'object' && tournament.tournament_teams !== null
+                      ? (tournament.tournament_teams as any).count || 0
+                      : tournament.tournament_teams || 0
 
                   return (
                     <Link
@@ -299,9 +302,59 @@ export default async function DashboardPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-3 flex-wrap">
-                          <span className="font-heading text-body-lg text-on-surface truncate">
-                            {match.team_a?.name || 'TBD'} <span className="text-on-surface-variant">vs</span> {match.team_b?.name || 'TBD'}
-                          </span>
+                          {/* ✅ Extraer primer elemento de cada array */}
+                          {(() => {
+                            const teamA = Array.isArray(match.team_a) ? match.team_a[0] : match.team_a
+                            const teamB = Array.isArray(match.team_b) ? match.team_b[0] : match.team_b
+                            const tournament = Array.isArray(match.tournament) ? match.tournament[0] : match.tournament
+
+                            return (
+                              <>
+                                <span className="font-heading text-body-lg text-on-surface truncate">
+                                  {teamA?.name || 'TBD'} <span className="text-on-surface-variant">vs</span> {teamB?.name || 'TBD'}
+                                </span>
+
+                                {match.status === 'live' && (
+                                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container/10 border border-secondary-container/20 animate-pulse-slow">
+                                    <span className="relative flex h-2.5 w-2.5">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary-container opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-secondary-container"></span>
+                                    </span>
+                                    <span className="text-label-caps text-secondary font-heading">EN VIVO</span>
+                                  </span>
+                                )}
+
+                                {match.status === 'finished' && (
+                                  <span className="px-3 py-1 bg-primary text-white text-label-caps rounded-full font-heading">
+                                    ✅ {match.score_a} - {match.score_b}
+                                  </span>
+                                )}
+
+                                {match.status === 'scheduled' && (
+                                  <span className="px-3 py-1 bg-surface-container-high text-on-surface-variant text-label-caps rounded-full font-heading">
+                                    📅 Pendiente
+                                  </span>
+                                )}
+
+                                <p className="text-body-md text-on-surface-variant font-body mt-2 flex items-center gap-2 flex-wrap">
+                                  <span>🕐</span>
+                                  {new Date(match.match_date).toLocaleDateString('es-ES', {
+                                    weekday: 'short',
+                                    day: 'numeric',
+                                    month: 'short',
+                                    hour: '2-digit',
+                                    minute: '2-digit'
+                                  })}
+                                  {tournament && (
+                                    <>
+                                      <span className="text-outline-variant">•</span>
+                                      <span className="text-primary font-heading">{tournament.name}</span>
+                                    </>
+                                  )}
+                                </p>
+                              </>
+                            )
+                          })()}
 
                           {match.status === 'live' && (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-secondary-container/10 border border-secondary-container/20 animate-pulse-slow">
@@ -335,12 +388,18 @@ export default async function DashboardPage() {
                             hour: '2-digit',
                             minute: '2-digit'
                           })}
-                          {match.tournament && (
-                            <>
-                              <span className="text-outline-variant">•</span>
-                              <span className="text-primary font-heading">{match.tournament.name}</span>
-                            </>
-                          )}
+                          {(() => {
+                            const tournament = Array.isArray(match.tournament)
+                              ? match.tournament[0]
+                              : match.tournament
+
+                            return tournament && (
+                              <>
+                                <span className="text-outline-variant">•</span>
+                                <span className="text-primary font-heading">{tournament.name}</span>
+                              </>
+                            )
+                          })()}
                         </p>
                       </div>
                     </div>
