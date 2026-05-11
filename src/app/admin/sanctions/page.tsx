@@ -141,6 +141,16 @@ export default async function SanctionsPage() {
 
   // ✅ PASO 4: Combinar suspensiones con sus pagos
   const processedSuspensions = (activeSuspensions || []).map(suspension => {
+    // ✅ Extraer primer elemento de arrays
+    const player = Array.isArray(suspension.player) ? suspension.player[0] : suspension.player
+    const tournament = Array.isArray(suspension.tournament) ? suspension.tournament[0] : suspension.tournament
+
+    // ✅ Extraer team del player
+    const playerWithTeam = player ? {
+      ...player,
+      team: Array.isArray(player.team) ? player.team[0] : player.team
+    } : null
+
     const playerPayments = cardPayments.filter(
       p => p.player_id === suspension.player_id && p.tournament_id === suspension.tournament_id
     )
@@ -148,32 +158,46 @@ export default async function SanctionsPage() {
 
     return {
       ...suspension,
+      player: playerWithTeam,  // ✅ Usar player procesado
+      tournament: tournament,  // ✅ Usar tournament procesado
       fine_payment: playerPayments.find((p: any) => p.paid_at !== null) || null,
       fine_paid: finePaid,
     }
   })
 
   // ✅ PASO 5: Convertir multas de amarillas al formato compatible
-  const yellowFinesAsSuspensions: PlayerSuspensionWithRelations[] = (yellowCardFines || []).map((fine: any) => ({
-    id: `yellow_${fine.id}`,  // ID único para evitar conflictos
-    suspension_type: 'admin' as const, // Tratar como suspensión administrativa para diferenciar
-    reason: 'Multa por tarjeta amarilla', 
-    matches_suspended: 0,  // No hay suspensión de partidos
-    matches_remaining: 0, 
-    created_at: fine.created_at,
-    tournament_id: fine.tournament_id,
-    player_id: fine.player_id,
-    player: fine.player,
-    tournament: fine.tournament,
-    fine_payment: {
-      id: fine.id,
-      amount: fine.amount,
-      paid_at: fine.paid_at,
-      payment_method: 'cash',
-    },
-    fine_paid: fine.paid_at !== null,
-    is_yellow_card_fine: true,
-  }))
+  const yellowFinesAsSuspensions: PlayerSuspensionWithRelations[] = (yellowCardFines || []).map((fine: any) => {
+    // ✅ Extraer primer elemento de los arrays (Supabase devuelve arrays en joins)
+    const player = Array.isArray(fine.player) ? fine.player[0] : fine.player
+    const tournament = Array.isArray(fine.tournament) ? fine.tournament[0] : fine.tournament
+
+    // ✅ Extraer team del player si existe
+    const playerWithTeam = player ? {
+      ...player,
+      team: Array.isArray(player.team) ? player.team[0] : player.team
+    } : null
+
+    return {
+      id: `yellow_${fine.id}`,  // ID único para evitar conflictos
+      suspension_type: 'admin' as const,  // Usamos 'admin' para diferenciar
+      reason: 'Multa por tarjeta amarilla',
+      matches_suspended: 0,  // No hay suspensión de partidos
+      matches_remaining: 0,
+      created_at: fine.created_at,
+      tournament_id: fine.tournament_id,
+      player_id: fine.player_id,
+      player: playerWithTeam,
+      tournament: tournament,
+      fine_payment: {
+        id: fine.id,
+        amount: fine.amount,
+        paid_at: fine.paid_at,
+        payment_method: 'cash',
+      },
+      fine_paid: fine.paid_at !== null,
+      is_yellow_card_fine: true,  // ✅ Campo para identificar amarillas
+    }
+  })
   // ✅ PASO 6: Combinar suspensiones rojas + multas amarillas
   const allSuspensions = [
     ...processedSuspensions,
