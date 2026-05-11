@@ -15,14 +15,8 @@ interface MatchCardProps {
 }
 
 export function MatchCard({ teamA, teamB, date, status, group, onClick }: MatchCardProps) {
-  return (
-    <AnimatedCard 
-      className={cn(
-        'p-6 cursor-pointer',
-        status === 'live' && 'card-live border-2'
-      )}
-      onClick={onClick}
-    >
+  const content = (
+    <>
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         {group && (
@@ -81,6 +75,35 @@ export function MatchCard({ teamA, teamB, date, status, group, onClick }: MatchC
           </div>
         </div>
       )}
+    </>
+  )
+
+  // ✅ Si hay onClick, envolver en div clickeable
+  if (onClick) {
+    return (
+      <div 
+        onClick={onClick}
+        className={cn(
+          'cursor-pointer',
+          status === 'live' && 'border-2 border-error'
+        )}
+      >
+        <AnimatedCard className="p-6">
+          {content}
+        </AnimatedCard>
+      </div>
+    )
+  }
+
+  // ✅ Sin onClick, solo AnimatedCard
+  return (
+    <AnimatedCard 
+      className={cn(
+        'p-6',
+        status === 'live' && 'card-live border-2'
+      )}
+    >
+      {content}
     </AnimatedCard>
   )
 }

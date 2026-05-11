@@ -2,6 +2,7 @@
 'use client'
 
 import { AnimatedCard } from './AnimatedCard'
+import { cn } from '@/lib/utils'  // ✅ Agregar este import
 
 interface StatCardProps {
   label: string
