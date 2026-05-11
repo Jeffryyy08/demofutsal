@@ -99,18 +99,18 @@ export function FinancialReportsManager({ initialReports }: FinancialReportsMana
     doc.rect(14, finalY, 182, 40, 'F')
     
     doc.setFontSize(13)
-    doc.setFont(undefined, 'bold')
+    doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 62, 199)
     doc.text('RESUMEN TOTAL DEL PERÍODO:', 20, finalY + 10)
     
-    doc.setFont(undefined, 'normal')
+    doc.setFont('helvetica', 'normal')
     doc.setTextColor(0, 0, 0)
     doc.setFontSize(11)
     doc.text(`Total Inscripciones: ${totalInscriptions}`, 20, finalY + 20)
     doc.text(`Total Tarjetas Amarillas: ${totalYellow}`, 70, finalY + 20)
     doc.text(`Total Tarjetas Rojas: ${totalRed}`, 120, finalY + 20)
     
-    doc.setFont(undefined, 'bold')
+    doc.setFont('helvetica', 'bold')
     doc.setTextColor(0, 128, 0)
     doc.setFontSize(14)
     doc.text(`Monto Total Recaudado: ₡${totalAmount.toLocaleString()}`, 20, finalY + 32)

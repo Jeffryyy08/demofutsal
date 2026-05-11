@@ -363,7 +363,6 @@ export function TournamentConfig({
             <CardContent>
               <GroupsPreview
                 teams={teamsList}
-                teamsPerGroup={tournament.category?.teams_per_group || 4}
               />
             </CardContent>
             <CardFooter className="flex justify-between">

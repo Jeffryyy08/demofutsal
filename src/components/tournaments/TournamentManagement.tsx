@@ -16,9 +16,9 @@ interface TournamentManagementProps {
   existingTournaments: Tournament[]
 }
 
-export function TournamentManagement({ 
-  category, 
-  existingTournaments 
+export function TournamentManagement({
+  category,
+  existingTournaments
 }: TournamentManagementProps) {
   const router = useRouter()
   const [showCreateForm, setShowCreateForm] = useState(false)
@@ -35,9 +35,9 @@ export function TournamentManagement({
       formData.name,
       formData.registration_deadline
     )
-    
-    if (result.success && result.tournament) {
-      router.push(`/admin/tournaments/${category.slug}/${result.tournament.id}`)
+
+    if (result.success && result.data) {
+      router.push(`/admin/tournaments/${category.slug}/${result.data.id}`)
     }
     setLoading(false)
   }
@@ -104,8 +104,8 @@ export function TournamentManagement({
             </div>
           </CardContent>
           <CardFooter>
-            <Button 
-              onClick={handleCreate} 
+            <Button
+              onClick={handleCreate}
               disabled={loading || !formData.name || !formData.registration_deadline}
             >
               {loading ? 'Creando...' : 'Crear Torneo'}
@@ -134,7 +134,7 @@ export function TournamentManagement({
                 <div>
                   <p className="text-muted-foreground">Fecha Límite</p>
                   <p className="font-medium">
-                    {tournament.registration_deadline 
+                    {tournament.registration_deadline
                       ? new Date(tournament.registration_deadline).toLocaleDateString()
                       : 'No definida'
                     }
@@ -143,7 +143,7 @@ export function TournamentManagement({
                 <div>
                   <p className="text-muted-foreground">Inicio</p>
                   <p className="font-medium">
-                    {tournament.start_date 
+                    {tournament.start_date
                       ? new Date(tournament.start_date).toLocaleDateString()
                       : 'Pendiente'
                     }
@@ -162,7 +162,7 @@ export function TournamentManagement({
               </div>
             </CardContent>
             <CardFooter>
-              <Button 
+              <Button
                 onClick={() => router.push(`/admin/tournaments/${category.slug}/${tournament.id}`)}
               >
                 Gestionar →

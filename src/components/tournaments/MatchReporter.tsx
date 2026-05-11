@@ -75,13 +75,13 @@ export function MatchReporter({ match, onResultUpdated }: MatchReporterProps) {
     <>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogTrigger asChild>
-          <Button 
-            size="sm" 
+          <Button
+            size="sm"
             variant={match.status === 'finished' ? 'outline' : 'default'}
             className={`
               gap-2 rounded-full font-heading text-label-caps
-              ${match.status === 'finished' 
-                ? 'border-[#003ec7] text-[#003ec7] hover:bg-[#003ec7]/5' 
+              ${match.status === 'finished'
+                ? 'border-[#003ec7] text-[#003ec7] hover:bg-[#003ec7]/5'
                 : 'bg-gradient-primary hover:shadow-glow'
               }
             `}
@@ -92,7 +92,7 @@ export function MatchReporter({ match, onResultUpdated }: MatchReporterProps) {
 
         <DialogContent className="max-w-2xl p-0 overflow-hidden">
           {/* Header con Gradiente FutsalCTP */}
-          <div 
+          <div
             className="p-6 text-white relative overflow-hidden"
             style={{
               background: 'linear-gradient(135deg, #003ec7 0%, #0052ff 50%, #0038b6 100%)',
@@ -102,7 +102,7 @@ export function MatchReporter({ match, onResultUpdated }: MatchReporterProps) {
               <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2" />
               <div className="absolute bottom-0 right-0 w-32 h-32 bg-[#fe6b00] rounded-full blur-2xl translate-x-1/2 translate-y-1/2" />
             </div>
-            
+
             <DialogHeader className="relative z-10">
               <DialogTitle className="flex items-center gap-3 text-2xl font-bold">
                 {getStatusBadge()}
@@ -122,10 +122,10 @@ export function MatchReporter({ match, onResultUpdated }: MatchReporterProps) {
 
           {/* Contenido */}
           <div className="p-6 space-y-6">
-            
+
             {/* Botón Principal - Control en Vivo */}
             <AnimatedCard animation="slide-up" delay={0.1}>
-              <div 
+              <div
                 className="p-6 rounded-xl text-white text-center relative overflow-hidden"
                 style={{
                   background: 'linear-gradient(135deg, #003ec7 0%, #0052ff 100%)',
@@ -134,7 +134,7 @@ export function MatchReporter({ match, onResultUpdated }: MatchReporterProps) {
                 <div className="absolute inset-0 opacity-10">
                   <div className="absolute top-0 right-0 w-24 h-24 bg-[#fe6b00] rounded-full blur-xl" />
                 </div>
-                
+
                 <div className="relative z-10">
                   <div className="text-5xl mb-4">🎮</div>
                   <h3 className="text-xl font-bold mb-2 font-heading">
@@ -164,7 +164,7 @@ export function MatchReporter({ match, onResultUpdated }: MatchReporterProps) {
                       Antes de comenzar:
                     </p>
                     <p className="font-body text-on-surface-variant text-sm">
-                      Se abrirá el pase de lista para registrar jugadores presentes. 
+                      Se abrirá el pase de lista para registrar jugadores presentes.
                       Los jugadores suspendidos o sin pago aparecerán en rojo y no podrán ser marcados.
                     </p>
                   </div>
@@ -181,7 +181,7 @@ export function MatchReporter({ match, onResultUpdated }: MatchReporterProps) {
                   { icon: '🟨', title: 'Tarjetas', desc: 'Registro automático' },
                   { icon: '⏱️', title: 'Cronómetro', desc: 'Tiempo real del partido' },
                 ].map((feature, index) => (
-                  <div 
+                  <div
                     key={index}
                     className="p-4 bg-surface-container-low rounded-xl border border-outline-variant/10 hover:border-[#003ec7]/30 transition-colors"
                   >
@@ -204,8 +204,8 @@ export function MatchReporter({ match, onResultUpdated }: MatchReporterProps) {
       {/* ✅ Dialog de Pase de Lista */}
       <MatchAttendanceDialog
         matchId={match.id}
-        teamAId={match.team_a_id}
-        teamBId={match.team_b_id}
+        teamAId={match.team_a_id || ''}  // ✅ Fallback a string vacío
+        teamBId={match.team_b_id || ''}  // ✅ Fallback a string vacío
         teamAName={match.teamA?.name || ''}
         teamBName={match.teamB?.name || ''}
         open={showAttendanceDialog}

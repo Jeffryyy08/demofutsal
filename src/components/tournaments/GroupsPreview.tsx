@@ -127,9 +127,14 @@ function distributeTeamsInGroups(teams: Team[], distribution: number[]): { group
   const labels = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
   let teamIndex = 0
   
-  // Ordenar equipos por sección para distribución consistente
+  // ✅ Ordenar equipos por sección (manejando null)
   const sortedTeams = [...teams].sort((a, b) => {
-    if (a.section !== b.section) return a.section.localeCompare(b.section)
+    const sectionA = a.section || ''  // ✅ Fallback a string vacío
+    const sectionB = b.section || ''
+    
+    if (sectionA !== sectionB) {
+      return sectionA.localeCompare(sectionB)
+    }
     return a.name.localeCompare(b.name)
   })
   

@@ -384,7 +384,7 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
 
         {/* Alerta de 5ta Falta */}
         {showFoulAlert && (
-          <AnimatedCard animation="slide-down" className="bg-[#fe6b00]/10 border border-[#fe6b00]/30">
+          <AnimatedCard animation="slide-up" className="bg-[#fe6b00]/10 border border-[#fe6b00]/30">
             <Alert className="bg-transparent border-0 p-0">
               <AlertDescription className="text-[#fe6b00] font-bold font-heading flex items-center gap-2">
                 <span className="text-2xl">🚨</span>

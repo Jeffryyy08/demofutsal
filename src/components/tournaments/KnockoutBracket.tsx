@@ -80,7 +80,7 @@ export function KnockoutBracket({ matches, teams, tournamentName, onMatchUpdated
                                     <Badge variant={isFinal ? 'default' : 'outline'} className={isFinal ? 'bg-orange-500' : ''}>
                                         {isFinal ? 'FINAL' : `${roundLabel.includes('CUARTOS') ? 'Cuarto' : roundLabel.includes('SEMIFINALES') ? 'Semifinal' : 'Partido'} ${index + 1}`}
                                     </Badge>
-                                    <MatchReporter match={match} teams={teams} onResultUpdated={onMatchUpdated} />
+                                    <MatchReporter match={match} onResultUpdated={onMatchUpdated} />
                                 </div>
 
                                 {/* Equipo A */}

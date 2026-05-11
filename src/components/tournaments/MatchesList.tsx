@@ -25,7 +25,7 @@ export function MatchesList({ matches, teams, tournamentName, onMatchUpdated }: 
     const teamA = teams.find(t => t.id === match.team_a_id)
     const teamB = teams.find(t => t.id === match.team_b_id)
 
-    const groupLabel = match.group_label || teamA?.group_label || teamB?.group_label || 'Sin grupo'
+    const groupLabel = match.group_label || 'Sin grupo'
 
     if (!acc[groupLabel]) {
       acc[groupLabel] = []

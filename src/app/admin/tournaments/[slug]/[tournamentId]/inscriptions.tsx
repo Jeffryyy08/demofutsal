@@ -12,60 +12,76 @@ export default async function TournamentInscriptionsPage({
   params: { slug: string; tournamentId: string }
 }) {
   const supabase = await createClient()
-  
+
   // Obtener información del torneo
   const { data: tournament } = await supabase
     .from('tournaments')
     .select('id, name, section')
     .eq('id', params.tournamentId)
     .single()
-  
+
   // Obtener configuración del torneo
   const { data: config } = await supabase
     .from('tournament_settings')
     .select('inscription_fee, yellow_card_fee, red_card_fee')
     .eq('tournament_id', params.tournamentId)
     .single()
-  
+
   // Obtener equipos del torneo
-  const { data: teams } = await supabase
+  const { data: teamsData } = await supabase
     .from('tournament_teams')
     .select(`
-      team_id,
-      team:teams (
-        id,
-        name,
-        section
-      )
-    `)
+    team_id,
+    team:teams (
+      id,
+      name,
+      section
+    )
+  `)
     .eq('tournament_id', params.tournamentId)
     .order('team:section')
-  
+
+  // ✅ Transformar teams: extraer team[0] y aplanar la estructura
+  const teams = (teamsData || []).map(tt => {
+    const teamObj = Array.isArray(tt.team) ? tt.team[0] : tt.team
+    return {
+      id: teamObj?.id || tt.team_id,
+      name: teamObj?.name || '',
+      section: teamObj?.section || '',
+    }
+  }).filter(t => t.id) // Filtrar teams nulos
+
   // Obtener jugadores de todos los equipos
-  const { data: players } = await supabase
+  const { data: playersData } = await supabase
     .from('players')
     .select(`
+    id,
+    full_name,
+    team_id,
+    has_paid_inscription,
+    inscription_paid_at,
+    team:teams (
       id,
-      full_name,
-      team_id,
-      has_paid_inscription,
-      inscription_paid_at,
-      team:teams (
-        id,
-        name,
-        section
-      )
-    `)
-    .in('team_id', teams?.map(t => t.team_id) || [])
+      name,
+      section
+    )
+  `)
+    .in('team_id', teams.map(t => t.id))
     .order('team:section')
     .order('full_name')
-  
+
+  // ✅ Transformar players: extraer team[0]
+  const players = (playersData || []).map(player => ({
+    ...player,
+    team: Array.isArray(player.team) ? player.team[0] : player.team,
+  }))
+
   const inscriptionFee = config?.inscription_fee || 1000
-  
+
   return (
     <div className="min-h-screen bg-surface">
       {/* Header */}
-      <header 
+      <header
         className="py-12 px-gutter text-white relative overflow-hidden"
         style={{
           background: 'linear-gradient(135deg, #003ec7 0%, #0052ff 50%, #0038b6 100%)',
@@ -73,14 +89,14 @@ export default async function TournamentInscriptionsPage({
         }}
       >
         <div className="container-custom relative z-10">
-          <Link 
+          <Link
             href={`/admin/tournaments/${params.slug}/${params.tournamentId}`}
             className="inline-flex items-center gap-2 text-blue-100 hover:text-white transition-colors mb-4 font-heading text-sm font-semibold"
           >
             <span>←</span>
             Volver al Torneo
           </Link>
-          
+
           <h1 className="text-4xl md:text-5xl font-extrabold mb-3 tracking-tight font-heading flex items-center gap-3">
             <span className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm text-2xl">
               💳
@@ -94,7 +110,7 @@ export default async function TournamentInscriptionsPage({
       </header>
 
       <main className="container-custom py-12 px-gutter space-y-8">
-        
+
         {/* Estadísticas */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <AnimatedCard className="p-6" animation="slide-up" delay={0.1}>
@@ -163,9 +179,9 @@ export default async function TournamentInscriptionsPage({
         </div>
 
         {/* Gestor de Inscripciones */}
-        <PlayerInscriptionsManager 
+        <PlayerInscriptionsManager
           tournamentId={params.tournamentId}
-          players={players || []}
+          players={players}  // ✅ team ahora es objeto
           teams={teams || []}
           inscriptionFee={inscriptionFee}
         />

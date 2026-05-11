@@ -23,10 +23,38 @@ import {
 import { registerPlayerPaymentAction } from '@/actions/players'
 import { toast } from 'sonner'
 
+// ✅ Tipos explícitos - CORREGIDOS
+interface Player {
+  id: string
+  full_name: string
+  team_id: string
+  has_paid_inscription: boolean
+  inscription_paid_at?: string | null
+  team?: {
+    name: string
+    section: string
+  } | null
+}
+
+interface Team {
+  id: string
+  name: string
+  section: string
+}
+
+// ✅ TeamPlayersGroup usa el tipo correcto (sin id requerido)
+interface TeamPlayersGroup {
+  team: {
+    name: string
+    section: string
+  } | null
+  players: Player[]
+}
+
 interface PlayerInscriptionsManagerProps {
   tournamentId: string
-  players: any[]
-  teams: any[]
+  players: Player[]
+  teams: Team[]
   inscriptionFee: number
 }
 
@@ -61,25 +89,24 @@ export function PlayerInscriptionsManager({
     
     if (result.success) {
       toast.success('✅ Inscripción registrada correctamente')
-      // Recargar página para ver cambios
       window.location.reload()
     } else {
       toast.error('❌ Error al registrar pago')
     }
   }
 
-  // Agrupar jugadores por equipo
+  // ✅ Agrupar jugadores por equipo con tipos correctos
   const playersByTeam = players.reduce((acc, player) => {
     const teamId = player.team_id
     if (!acc[teamId]) {
       acc[teamId] = {
-        team: player.team,
+        team: player.team || null,
         players: [],
       }
     }
     acc[teamId].players.push(player)
     return acc
-  }, {} as Record<string, { team: any; players: any[] }>)
+  }, {} as Record<string, TeamPlayersGroup>)
 
   return (
     <>
@@ -94,10 +121,10 @@ export function PlayerInscriptionsManager({
                   </div>
                   <div>
                     <h3 className="font-heading text-headline-md text-on-surface font-bold">
-                      {team?.name}
+                      {team?.name || 'Sin equipo'}
                     </h3>
                     <p className="font-body text-body-sm text-on-surface-variant">
-                      {team?.section} • {teamPlayers.filter(p => p.has_paid_inscription).length}/{teamPlayers.length} inscritos
+                      {team?.section || ''} • {teamPlayers.filter(p => p.has_paid_inscription).length}/{teamPlayers.length} inscritos
                     </p>
                   </div>
                 </div>
@@ -108,7 +135,7 @@ export function PlayerInscriptionsManager({
             </div>
 
             <div className="divide-y divide-outline-variant/10">
-              {teamPlayers.map((player) => (
+              {teamPlayers.map((player: Player) => (
                 <div
                   key={player.id}
                   className={`p-4 flex items-center justify-between transition-colors ${
@@ -131,7 +158,7 @@ export function PlayerInscriptionsManager({
                       </p>
                       <p className="font-body text-body-sm text-on-surface-variant">
                         {player.has_paid_inscription 
-                          ? `Pagado: ${new Date(player.inscription_paid_at).toLocaleDateString('es-CR')}`
+                          ? `Pagado: ${player.inscription_paid_at ? new Date(player.inscription_paid_at).toLocaleDateString('es-CR') : 'N/A'}`
                           : 'Pendiente de pago'
                         }
                       </p>
