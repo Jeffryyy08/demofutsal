@@ -321,8 +321,11 @@ export async function getTeamsByTournamentAndGroup(
     throw error
   }
   
-  const teams = data?.map(dt => dt.team).filter(Boolean) as Team[]
-  
-  console.log('✅ Equipos encontrados:', teams?.length || 0)
-  return teams || []
+  const teams = data
+  ?.map(dt => Array.isArray(dt.team) ? dt.team[0] : dt.team)
+  .filter((team): team is Team => team !== null && team !== undefined)
+
+console.log('✅ Equipos encontrados:', teams?.length || 0)
+return teams || []
+
 }
