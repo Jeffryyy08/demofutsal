@@ -52,7 +52,7 @@ export function Sidebar() {
 
   return (
     <>
-      {/* ========== MOBILE HEADER ========== */}
+      {/* ========== MOBILE HEADER (solo visible en móvil) ========== */}
       <header className="lg:hidden fixed top-0 left-0 right-0 z-40 bg-[#003ec7] text-white px-4 py-3 shadow-lg">
         <div className="flex items-center justify-between">
           {/* Botón Hamburguesa */}
@@ -66,7 +66,7 @@ export function Sidebar() {
             </svg>
           </button>
           
-          {/* Logo pequeño en mobile */}
+          {/* Logo pequeño */}
           <div className="flex items-center gap-2">
             <Image
               src="/images/logoicon.png"
@@ -86,7 +86,7 @@ export function Sidebar() {
         </div>
       </header>
 
-      {/* ========== OVERLAY PARA MOBILE ========== */}
+      {/* ========== OVERLAY (solo móvil) ========== */}
       {isOpen && (
         <div 
           className="lg:hidden fixed inset-0 bg-black/50 z-45 backdrop-blur-sm"
@@ -97,9 +97,10 @@ export function Sidebar() {
       {/* ========== SIDEBAR ========== */}
       <aside className={cn(
         'fixed lg:static top-0 left-0 h-screen w-72 border-r border-outline-variant/20 bg-surface-container-lowest/95 backdrop-blur-xl z-50 transition-transform duration-300 ease-in-out',
-        // Mobile: oculto por defecto, se desliza al abrir
+        // Desktop: siempre visible en su posición normal
         'lg:translate-x-0',
-        isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
+        // Mobile: se desliza según isOpen
+        isOpen ? 'translate-x-0' : '-translate-x-full'
       )}>
         
         {/* Header con Logo - VERTICAL */}
@@ -132,7 +133,7 @@ export function Sidebar() {
             </div>
           </Link>
           
-          {/* Botón cerrar en mobile */}
+          {/* Botón cerrar (solo móvil) */}
           <button 
             onClick={() => setIsOpen(false)}
             className="lg:hidden absolute top-3 right-3 p-2 rounded-lg bg-surface-container-high text-on-surface-variant hover:bg-surface-container"
@@ -142,7 +143,7 @@ export function Sidebar() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-4 py-6 overflow-y-auto max-h-[calc(100vh-320px)]">
+        <nav className="flex-1 space-y-1 px-4 py-6 overflow-y-auto max-h-[calc(100vh-200px)]">
           {menuItems.map((item, index) => {
             const isActive = pathname === item.href
             
