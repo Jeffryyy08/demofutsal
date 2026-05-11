@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AnimatedCard } from '@/components/ui/AnimatedCard'
+import Image from 'next/image'
 
 export function LoginForm() {
   const [error, setError] = useState('')
@@ -16,31 +17,40 @@ export function LoginForm() {
     setLoading(true)
     setError('')
 
-    try {
-      const result = await login(formData)
-      
-      if (result?.error) {
-        setError(result.error)
-        setLoading(false)
-      }
-    } catch (err) {
-      setError('Error inesperado')
+    // ✅ NO usar try/catch - redirect() lanza una excepción especial
+    const result = await login(formData)
+    
+    // Solo llegamos aquí si el login FALLÓ (no hubo redirect)
+    if (result?.error) {
+      setError(result.error)
       setLoading(false)
     }
+    // Si el login fue exitoso, redirect() ya se ejecutó
   }
 
   return (
     <AnimatedCard className="w-full max-w-md mx-auto p-8" animation="scale-in">
-      {/* Logo/Header */}
+      {/* Logo y Título - Estilo Sidebar */}
       <div className="text-center mb-8">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-primary text-3xl text-white shadow-glow mb-4">
-          ⚽
+        {/* Logo del sidebar */}
+        <div className="inline-flex items-center justify-center mb-4">
+          <Image
+            src="/images/logoicon.png"  // ← Ajusta la ruta según donde tengas el logo
+            alt="CTP Logo"
+            width={120}
+            height={120}
+            className="drop-shadow-lg"
+            priority
+          />
         </div>
-        <h1 className="font-heading text-headline-md text-on-surface mb-2">
-          Futsal<span className="text-primary">Pro</span>
+        
+        {/* Título estilo sidebar */}
+        <h1 className="font-heading text-2xl font-bold mb-1">
+          <span className="text-[#003ec7]">Futsal</span><span className="text-[#fe6b00]">CTP</span>
         </h1>
+        
         <p className="font-body text-body-md text-on-surface-variant">
-          Panel Administrativo
+          Inicio de sesión
         </p>
       </div>
 
@@ -84,6 +94,7 @@ export function LoginForm() {
               id="password"
               name="password"
               type="password"
+              placeholder="••••••••"
               required
               disabled={loading}
               className="font-body text-body-md h-12 pl-4 pr-4 rounded-xl border-outline-variant/50 focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all duration-200 disabled:bg-surface-container disabled:text-on-surface-variant"
@@ -147,7 +158,7 @@ export function LoginForm() {
           </a>
         </p>
         <p className="font-body text-body-xs text-on-surface-variant mt-3">
-          © 2026 FutsalPro • Sistema de Torneos Escolares
+          © 2026 FutsalCTP • By Jeffry López
         </p>
       </div>
 

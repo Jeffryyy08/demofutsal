@@ -16,7 +16,7 @@ export default function MatchLivePage() {
 
   useEffect(() => {
     const loadMatch = async () => {
-      const {  data } = await supabase
+      const { data } = await supabase
         .from('matches')
         .select(`
           *,

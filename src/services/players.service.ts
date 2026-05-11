@@ -1,9 +1,9 @@
 // src/services/players.service.ts
 import { supabase } from '@/lib/supabase'
-import { 
-  Player, 
-  PlayerPayment, 
-  PlayerSuspension, 
+import {
+  Player,
+  PlayerPayment,
+  PlayerSuspension,
   TournamentConfig,
   PlayerEligibility,
   TeamEligibilityCheck,
@@ -15,6 +15,36 @@ import {
 // ============================================
 // CONFIGURACIÓN DEL TORNEO
 // ============================================
+// ============================================
+// ✅ CONFIGURACIÓN DE TASAS (FEE SETTINGS)
+// ============================================
+
+export async function getFeeSettings(feeType: 'inscription' | 'yellow_card' | 'red_card' | 'suspension'): Promise<number> {
+  try {
+    const { data, error } = await supabase
+      .from('fee_settings')
+      .select('amount')
+      .eq('fee_type', feeType)
+      .eq('is_active', true)
+      .single()
+
+    if (error || !data) {
+      // Valores por defecto si no existe
+      const defaults = {
+        inscription: 1000,
+        yellow_card: 1000,
+        red_card: 2000,
+        suspension: 1000,
+      }
+      return defaults[feeType] || 1000
+    }
+
+    return Number(data.amount)
+  } catch (err) {
+    console.error('❌ Error al obtener fee_settings:', err)
+    return feeType === 'yellow_card' ? 1000 : 2000
+  }
+}
 
 export async function getTournamentConfig(tournamentId: string): Promise<TournamentConfig | null> {
   const { data, error } = await supabase
@@ -22,7 +52,7 @@ export async function getTournamentConfig(tournamentId: string): Promise<Tournam
     .select('*')
     .eq('tournament_id', tournamentId)
     .single()
-  
+
   if (error && error.code !== 'PGRST116') throw error  // PGRST116 = no rows
   return data
 }
@@ -42,7 +72,7 @@ export async function createTournamentConfig(
   try {
     // Verificar si ya existe configuración
     const existing = await getTournamentConfig(tournamentId)
-    
+
     if (existing) {
       // Actualizar existente
       const { data, error } = await supabase
@@ -56,11 +86,11 @@ export async function createTournamentConfig(
         .eq('tournament_id', tournamentId)
         .select()
         .single()
-      
+
       if (error) throw error
       return { success: true, config: data }
     }
-    
+
     // Crear nueva
     const { data, error } = await supabase
       .from('tournament_settings')
@@ -72,7 +102,7 @@ export async function createTournamentConfig(
       })
       .select()
       .single()
-    
+
     if (error) throw error
     return { success: true, config: data }
   } catch (err) {
@@ -95,7 +125,7 @@ export async function updateTournamentConfig(
         updated_at: new Date().toISOString(),
       })
       .eq('tournament_id', tournamentId)
-    
+
     if (error) throw error
     return { success: true }
   } catch (err) {
@@ -154,7 +184,6 @@ export async function createPlayer(playerData: {
         full_name: playerData.full_name.trim(),
         section: playerData.section.trim(),
         is_captain: playerData.is_captain || false,
-        // ✅ Valores por defecto para nuevos campos
         has_paid_inscription: false,
         is_suspended: false,
         suspension_matches_remaining: 0,
@@ -292,18 +321,9 @@ export async function registerPlayerPayment(
   }
 ): Promise<{ success: boolean; payment?: PlayerPayment; error?: string }> {
   try {
-    // Verificar configuración del torneo para validar monto
-    const config = await getTournamentConfig(payment.tournament_id)
-    
-    let expectedAmount = 0
-    if (payment.payment_type === 'inscription') {
-      expectedAmount = config?.inscription_fee ?? 1000
-    } else if (payment.payment_type === 'yellow_card') {
-      expectedAmount = config?.yellow_card_fee ?? 1000
-    } else if (payment.payment_type === 'red_card') {
-      expectedAmount = config?.red_card_fee ?? 2000
-    }
-    
+    // ✅ Obtener monto esperado de fee_settings (no tournament_settings)
+    const expectedAmount = await getFeeSettings(payment.payment_type)
+
     // Registrar el pago
     const { data, error } = await supabase
       .from('player_payments')
@@ -319,9 +339,9 @@ export async function registerPlayerPayment(
       })
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     // Si es inscripción, actualizar estado del jugador
     if (payment.payment_type === 'inscription') {
       await supabase
@@ -332,26 +352,42 @@ export async function registerPlayerPayment(
         })
         .eq('id', payment.player_id)
     }
-    
+
     // Si es tarjeta, actualizar contador
     if (payment.payment_type === 'yellow_card') {
+      const { data: yellowPlayer } = await supabase
+        .from('players')
+        .select('total_yellow_cards')
+        .eq('id', payment.player_id)
+        .single()
+
+      const currentYellowCards = yellowPlayer?.total_yellow_cards || 0
+
       await supabase
         .from('players')
-        .update({ 
-          total_yellow_cards: supabase.rpc('increment', { field: 'total_yellow_cards', player_id: payment.player_id })
+        .update({
+          total_yellow_cards: currentYellowCards + 1
         })
         .eq('id', payment.player_id)
     }
-    
+
     if (payment.payment_type === 'red_card') {
+      const { data: redPlayer } = await supabase
+        .from('players')
+        .select('total_red_cards')
+        .eq('id', payment.player_id)
+        .single()
+
+      const currentRedCards = redPlayer?.total_red_cards || 0
+
       await supabase
         .from('players')
-        .update({ 
-          total_red_cards: supabase.rpc('increment', { field: 'total_red_cards', player_id: payment.player_id })
+        .update({
+          total_red_cards: currentRedCards + 1
         })
         .eq('id', payment.player_id)
     }
-    
+
     return { success: true, payment: data }
   } catch (err) {
     return {
@@ -375,7 +411,7 @@ export async function getPlayerPayments(
     .eq('player_id', playerId)
     .eq('tournament_id', tournamentId)
     .order('paid_at', { ascending: false })
-  
+
   if (error) throw error
   return data || []
 }
@@ -390,7 +426,7 @@ export async function getPaymentsByTournament(tournamentId: string): Promise<Pla
     `)
     .eq('tournament_id', tournamentId)
     .order('paid_at', { ascending: false })
-  
+
   if (error) throw error
   return data || []
 }
@@ -408,7 +444,7 @@ export async function getPaymentsByTeam(
     .eq('team_id', teamId)
     .eq('tournament_id', tournamentId)
     .order('paid_at', { ascending: false })
-  
+
   if (error) throw error
   return data || []
 }
@@ -418,42 +454,42 @@ export async function getPaymentSummaryByTournament(
 ): Promise<TournamentFinancialSummary | null> {
   // Obtener configuración
   const config = await getTournamentConfig(tournamentId)
-  
+
   // Obtener todos los pagos del torneo
   const { data: payments } = await supabase
     .from('player_payments')
     .select('payment_type, amount')
     .eq('tournament_id', tournamentId)
-  
+
   // Obtener jugadores del torneo (vía tournament_teams)
   const { data: tournamentTeams } = await supabase
     .from('tournament_teams')
     .select('team_id')
     .eq('tournament_id', tournamentId)
-  
+
   const teamIds = tournamentTeams?.map(t => t.team_id) || []
-  
+
   // Obtener todos los jugadores de esos equipos
   const { data: players } = await supabase
     .from('players')
     .select('id, full_name, has_paid_inscription')
     .in('team_id', teamIds)
-  
+
   // Calcular resumen
   const totalPlayers = players?.length || 0
   const playersPaid = players?.filter(p => p.has_paid_inscription).length || 0
-  
+
   const inscriptionTotal = payments?.filter(p => p.payment_type === 'inscription').reduce((sum, p) => sum + p.amount, 0) || 0
   const yellowTotal = payments?.filter(p => p.payment_type === 'yellow_card').reduce((sum, p) => sum + p.amount, 0) || 0
   const redTotal = payments?.filter(p => p.payment_type === 'red_card').reduce((sum, p) => sum + p.amount, 0) || 0
-  
+
   // Obtener suspensiones activas
   const { count: activeSuspensions } = await supabase
     .from('player_suspensions')
     .select('*', { count: 'exact', head: true })
     .eq('tournament_id', tournamentId)
     .eq('is_active', true)
-  
+
   return {
     tournament_id: tournamentId,
     tournament_name: '',  // Se puede llenar con join si se necesita
@@ -473,6 +509,7 @@ export async function getPaymentSummaryByTournament(
 // ✅ SUSPENSIONES DE JUGADORES
 // ============================================
 
+// Busca la función createPlayerSuspension y actualiza el tipo:
 export async function createPlayerSuspension(
   suspension: {
     tournament_id: string
@@ -481,11 +518,12 @@ export async function createPlayerSuspension(
     suspension_type: 'red_card' | 'admin'
     reason?: string
     matches_suspended: number
+    matches_remaining?: number  // ✅ AGREGAR (opcional)
     match_id?: string
+    is_active?: boolean  // ✅ AGREGAR (opcional)
   }
 ): Promise<{ success: boolean; suspension?: PlayerSuspension; error?: string }> {
   try {
-    // Crear registro de suspensión
     const { data, error } = await supabase
       .from('player_suspensions')
       .insert({
@@ -495,25 +533,25 @@ export async function createPlayerSuspension(
         suspension_type: suspension.suspension_type,
         reason: suspension.reason,
         matches_suspended: suspension.matches_suspended,
-        matches_remaining: suspension.matches_suspended,
+        matches_remaining: suspension.matches_remaining ?? suspension.matches_suspended,  // ✅ Usar matches_suspended si no se proporciona
         match_id: suspension.match_id,
-        is_active: true,
+        is_active: suspension.is_active ?? true,  // ✅ Default a true
       })
       .select()
       .single()
-    
+
     if (error) throw error
-    
+
     // Actualizar estado del jugador
     await supabase
       .from('players')
       .update({
         is_suspended: true,
         suspension_reason: suspension.reason || 'Tarjeta roja',
-        suspension_matches_remaining: suspension.matches_suspended,
+        suspension_matches_remaining: suspension.matches_remaining ?? suspension.matches_suspended,
       })
       .eq('id', suspension.player_id)
-    
+
     return { success: true, suspension: data }
   } catch (err) {
     return {
@@ -536,7 +574,7 @@ export async function resolvePlayerSuspension(
         resolved_at: new Date().toISOString(),
       })
       .eq('id', suspensionId)
-    
+
     // Reactivar jugador
     await supabase
       .from('players')
@@ -546,7 +584,7 @@ export async function resolvePlayerSuspension(
         suspension_matches_remaining: 0,
       })
       .eq('id', playerId)
-    
+
     return { success: true }
   } catch (err) {
     return {
@@ -565,11 +603,11 @@ export async function decrementSuspensionMatches(
       .select('suspension_matches_remaining')
       .eq('id', playerId)
       .single()
-    
+
     if (!player) throw new Error('Jugador no encontrado')
-    
+
     const newRemaining = Math.max(0, player.suspension_matches_remaining - 1)
-    
+
     await supabase
       .from('players')
       .update({
@@ -577,7 +615,7 @@ export async function decrementSuspensionMatches(
         is_suspended: newRemaining > 0,
       })
       .eq('id', playerId)
-    
+
     // Si ya no tiene partidos, resolver suspensión
     if (newRemaining <= 0) {
       await supabase
@@ -589,7 +627,7 @@ export async function decrementSuspensionMatches(
         .eq('player_id', playerId)
         .eq('is_active', true)
     }
-    
+
     return { success: true }
   } catch (err) {
     return {
@@ -610,7 +648,7 @@ export async function getActiveSuspensions(tournamentId: string): Promise<Player
     .eq('tournament_id', tournamentId)
     .eq('is_active', true)
     .order('created_at', { ascending: false })
-  
+
   if (error) throw error
   return data || []
 }
@@ -625,7 +663,7 @@ export async function getSuspensionsByPlayer(
     .eq('player_id', playerId)
     .eq('tournament_id', tournamentId)
     .order('created_at', { ascending: false })
-  
+
   if (error) throw error
   return data || []
 }
@@ -641,22 +679,32 @@ export async function getPlayerEligibility(
   // Obtener jugador con datos completos
   const { data: player } = await supabase
     .from('players')
-    .select(`
-      *,
-      team:team_id (id, name, section)
-    `)
+    .select(`*, team:team_id (id, name, section)`)
     .eq('id', playerId)
     .single()
-  
+
   if (!player) return null
-  
+
+  // ✅ VERIFICAR si tiene multas de tarjetas pendientes de pago
+  const { data: unpaidCardFees } = await supabase
+    .from('player_payments')
+    .select('id, payment_type, amount')
+    .eq('player_id', playerId)
+    .eq('tournament_id', tournamentId)
+    .in('payment_type', ['yellow_card', 'red_card'])
+    .is('paid_at', null)  // Solo pagos NO realizados
+
+  // ✅ Asegurar que siempre sea boolean (no null)
+  const hasUnpaidFees = (unpaidCardFees?.length || 0) > 0
+
   // Determinar elegibilidad
   const hasPaid = player.has_paid_inscription ?? false
   const isSuspended = player.is_suspended ?? false
-  
+
   let isEligible = true
   let ineligibilityReason: string | undefined
-  
+
+  // ✅ PRIORIDAD DE VALIDACIÓN:
   if (!hasPaid && isSuspended) {
     isEligible = false
     ineligibilityReason = 'both'
@@ -666,8 +714,12 @@ export async function getPlayerEligibility(
   } else if (isSuspended) {
     isEligible = false
     ineligibilityReason = 'suspended'
+  } else if (hasUnpaidFees) {
+    // ✅ NUEVO: Verificar multas pendientes
+    isEligible = false
+    ineligibilityReason = 'unpaid_fees'
   }
-  
+
   return {
     player_id: player.id,
     player_name: player.full_name,
@@ -681,6 +733,9 @@ export async function getPlayerEligibility(
     total_red_cards: player.total_red_cards,
     is_eligible: isEligible,
     ineligibility_reason: ineligibilityReason,
+    // ✅ AGREGAR: Información de multas pendientes
+    has_unpaid_card_fees: hasUnpaidFees,
+    unpaid_fees_count: unpaidCardFees?.length || 0,
   }
 }
 
@@ -691,31 +746,31 @@ export async function getTeamEligibility(
   // Obtener configuración
   const config = await getTournamentConfig(tournamentId)
   const minPlayers = config?.min_players_to_play || 5
-  
+
   // Obtener jugadores del equipo
   const { data: players } = await supabase
     .from('players')
     .select('*')
     .eq('team_id', teamId)
-  
+
   if (!players) return null
-  
+
   // Obtener nombre del equipo
   const { data: team } = await supabase
     .from('teams')
     .select('name, section')
     .eq('id', teamId)
     .single()
-  
+
   // Clasificar jugadores
   const eligible: PlayerEligibility[] = []
   const ineligible: PlayerEligibility[] = []
   const suspended: PlayerEligibility[] = []
-  
+
   for (const player of players) {
     const eligibility = await getPlayerEligibility(player.id, tournamentId)
     if (!eligibility) continue
-    
+
     if (eligibility.is_eligible) {
       eligible.push(eligibility)
     } else {
@@ -725,9 +780,9 @@ export async function getTeamEligibility(
       }
     }
   }
-  
+
   const canPlay = eligible.length >= minPlayers
-  
+
   let forfeitInfo: TeamEligibilityCheck['forfeit_info']
   if (!canPlay) {
     forfeitInfo = {
@@ -736,11 +791,11 @@ export async function getTeamEligibility(
       score: '0-3',
     }
   }
-  
+
+  // ✅ CORREGIDO: Removido 'section' que no existe en TeamEligibilityCheck
   return {
     team_id: teamId,
     team_name: team?.name || '',
-    section: team?.section || '',
     total_players: players.length,
     eligible_players: eligible.length,
     ineligible_players: ineligible.length,
@@ -759,15 +814,15 @@ export async function checkMatchEligibility(
     getTeamEligibility(teamAId, tournamentId),
     getTeamEligibility(teamBId, tournamentId),
   ])
-  
+
   if (!teamA || !teamB) return null
-  
+
   const config = await getTournamentConfig(tournamentId)
   const forfeitA = config?.forfeit_score_a ?? 0
   const forfeitB = config?.forfeit_score_b ?? 3
-  
+
   let forfeit: MatchEligibilityResult['forfeit']
-  
+
   if (!teamA.can_play && teamB.can_play) {
     forfeit = { winner: 'B', score: `${forfeitA}-${forfeitB}`, reason: teamA.forfeit_info?.reason || 'Incomparecencia' }
   } else if (teamA.can_play && !teamB.can_play) {
@@ -775,7 +830,7 @@ export async function checkMatchEligibility(
   } else if (!teamA.can_play && !teamB.can_play) {
     forfeit = { winner: 'none', score: '0-0', reason: 'Ambos equipos sin jugadores elegibles' }
   }
-  
+
   return {
     match_id: '',  // Se puede pasar como parámetro si se necesita
     team_a: teamA,
@@ -794,23 +849,23 @@ export async function getTeamPaymentSummary(
     .from('players')
     .select('id, full_name, has_paid_inscription, is_suspended, suspension_reason, suspension_matches_remaining')
     .eq('team_id', teamId)
-  
+
   if (!players) return null
-  
+
   // Obtener nombre del equipo
   const { data: team } = await supabase
     .from('teams')
     .select('name, section')
     .eq('id', teamId)
     .single()
-  
+
   // Clasificar jugadores
   const paid = players.filter(p => p.has_paid_inscription && !p.is_suspended)
   const pending = players.filter(p => !p.has_paid_inscription)
   const suspended = players.filter(p => p.is_suspended)
-  
+
   const canPlay = paid.length >= 5  // Default minimum
-  
+
   return {
     team_id: teamId,
     team_name: team?.name || '',
@@ -818,9 +873,9 @@ export async function getTeamPaymentSummary(
     total_players: players.length,
     players_paid: {
       count: paid.length,
-      players: paid.map(p => ({ 
-        id: p.id, 
-        name: p.full_name, 
+      players: paid.map(p => ({
+        id: p.id,
+        name: p.full_name,
         paid_at: ''  // Se puede obtener de player_payments si se necesita
       })),
     },
@@ -830,11 +885,11 @@ export async function getTeamPaymentSummary(
     },
     suspended_players: {
       count: suspended.length,
-      players: suspended.map(p => ({ 
-        id: p.id, 
-        name: p.full_name, 
-        reason: p.suspension_reason || '', 
-        matches_remaining: p.suspension_matches_remaining 
+      players: suspended.map(p => ({
+        id: p.id,
+        name: p.full_name,
+        reason: p.suspension_reason || '',
+        matches_remaining: p.suspension_matches_remaining
       })),
     },
     can_play_next_match: canPlay,
@@ -853,24 +908,26 @@ export async function updatePlayerCards(
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const field = cardType === 'yellow' ? 'total_yellow_cards' : 'total_red_cards'
-    
-    // Obtener valor actual
-    const { data: player } = await supabase
+
+    // ✅ Obtener valor actual - CORREGIDO
+    const result = await supabase
       .from('players')
       .select(field)
       .eq('id', playerId)
       .single()
-    
-    if (!player) throw new Error('Jugador no encontrado')
-    
-    const currentValue = player[field] || 0
+
+    if (!result.data) throw new Error('Jugador no encontrado')
+
+    // ✅ Cast a any para evitar error de TypeScript
+    const playerData = result.data as any
+    const currentValue = playerData[field] || 0
     const newValue = increment ? currentValue + 1 : Math.max(0, currentValue - 1)
-    
+
     const { error } = await supabase
       .from('players')
       .update({ [field]: newValue })
       .eq('id', playerId)
-    
+
     if (error) throw error
     return { success: true }
   } catch (err) {
@@ -880,7 +937,6 @@ export async function updatePlayerCards(
     }
   }
 }
-
 export async function getPlayersEligibilityReport(
   tournamentId: string
 ): Promise<{ teams: TeamEligibilityCheck[]; summary: any }> {
@@ -889,16 +945,16 @@ export async function getPlayersEligibilityReport(
     .from('tournament_teams')
     .select('team_id')
     .eq('tournament_id', tournamentId)
-  
+
   const teamIds = tournamentTeams?.map(t => t.team_id) || []
-  
+
   // Obtener elegibilidad de cada equipo
   const teams: TeamEligibilityCheck[] = []
   for (const teamId of teamIds) {
     const eligibility = await getTeamEligibility(teamId, tournamentId)
     if (eligibility) teams.push(eligibility)
   }
-  
+
   // Resumen
   const summary = {
     total_teams: teams.length,
@@ -907,6 +963,6 @@ export async function getPlayersEligibilityReport(
     total_eligible_players: teams.reduce((sum, t) => sum + t.eligible_players, 0),
     total_ineligible_players: teams.reduce((sum, t) => sum + t.ineligible_players, 0),
   }
-  
+
   return { teams, summary }
 }

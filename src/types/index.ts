@@ -352,6 +352,8 @@ export interface PlayerEligibility {
   total_red_cards: number
   is_eligible: boolean  // true si puede jugar
   ineligibility_reason?: string  // 'no_payment' | 'suspended' | 'both'
+  has_unpaid_card_fees?: boolean
+  unpaid_fees_count?: number
 }
 
 export interface TeamEligibilityCheck {

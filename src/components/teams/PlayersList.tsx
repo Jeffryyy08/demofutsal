@@ -3,7 +3,7 @@
 
 import { useState } from 'react'
 import { Player } from '@/types'
-import { updatePlayerAction, deletePlayerAction } from '@/actions/players'
+import { updatePlayerAction, deletePlayerAction, payPlayerInscriptionAction } from '@/actions/players'  // ✅ NUEVO IMPORT
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -37,6 +37,7 @@ export function PlayersList({ players, onUpdate, onDelete }: PlayersListProps) {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null)
   const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; playerId?: string }>({ open: false })
   const [loading, setLoading] = useState<string | null>(null)
+  const [payingPlayerId, setPayingPlayerId] = useState<string | null>(null)  // ✅ NUEVO ESTADO
 
   const handleToggleCaptain = async (player: Player) => {
     if (player.is_captain) {
@@ -59,6 +60,27 @@ export function PlayersList({ players, onUpdate, onDelete }: PlayersListProps) {
     setLoading(player.id)
     await updatePlayerAction(player.id, { is_blocked: !player.is_blocked })
     setLoading(null)
+  }
+
+  // ✅ NUEVA FUNCIÓN: Pagar inscripción del jugador
+  const handlePayInscription = async (player: Player) => {
+    setPayingPlayerId(player.id)
+    
+    const result = await payPlayerInscriptionAction(
+      player.id,
+      player.team_id,
+      1000,  // ₡1,000 CRC
+      'cash'
+    )
+    
+    setPayingPlayerId(null)
+    
+    if (result.success) {
+      // Actualizar el jugador en la UI
+      onUpdate({ ...player, has_paid_inscription: true, inscription_paid_at: new Date().toISOString() })
+    } else {
+      alert('❌ Error al registrar pago: ' + result.error)
+    }
   }
 
   const handleDelete = async () => {
@@ -118,6 +140,9 @@ export function PlayersList({ players, onUpdate, onDelete }: PlayersListProps) {
                   Capitán
                 </th>
                 <th className="font-heading text-label-caps text-primary text-center py-4 px-6">
+                  Inscripción
+                </th>
+                <th className="font-heading text-label-caps text-primary text-center py-4 px-6">
                   Estado
                 </th>
                 <th className="font-heading text-label-caps text-primary text-center py-4 px-6">
@@ -136,7 +161,9 @@ export function PlayersList({ players, onUpdate, onDelete }: PlayersListProps) {
                     group transition-colors duration-200 animate-on-scroll
                     ${player.is_suspended || player.is_blocked 
                       ? 'bg-error/5' 
-                      : 'hover:bg-primary/5'
+                      : player.has_paid_inscription
+                      ? 'bg-green-50/30'
+                      : 'bg-amber-50/30 hover:bg-primary/5'
                     }
                   `}
                   style={{ animationDelay: `${0.1 + index * 0.05}s` }}
@@ -144,7 +171,11 @@ export function PlayersList({ players, onUpdate, onDelete }: PlayersListProps) {
                   {/* Player Name + Avatar */}
                   <td className="py-4 px-6">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-primary text-white font-heading font-bold text-sm shadow-soft">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-lg font-heading font-bold text-sm shadow-soft ${
+                        player.has_paid_inscription 
+                          ? 'bg-gradient-primary text-white' 
+                          : 'bg-amber-500 text-white'
+                      }`}>
                         {player.full_name.charAt(0).toUpperCase()}
                       </div>
                       <div>
@@ -177,6 +208,30 @@ export function PlayersList({ players, onUpdate, onDelete }: PlayersListProps) {
                     >
                       {player.is_captain ? '👑' : '👑 Designar'}
                     </Button>
+                  </td>
+
+                  {/* ✅ NUEVA COLUMNA: Estado de Inscripción */}
+                  <td className="py-4 px-6 text-center">
+                    {player.has_paid_inscription ? (
+                      <Badge className="bg-green-500/10 text-green-700 font-heading text-label-caps text-xs px-3 py-1 border border-green-500/20">
+                        ✅ Inscrito
+                      </Badge>
+                    ) : (
+                      <Button
+                        onClick={() => handlePayInscription(player)}
+                        disabled={payingPlayerId === player.id || loading === player.id}
+                        className="bg-amber-500 hover:bg-amber-600 text-white font-heading text-label-caps text-xs rounded-full px-4 h-8 transition-all hover:scale-105 disabled:opacity-50"
+                      >
+                        {payingPlayerId === player.id ? (
+                          <>
+                            <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block mr-1" />
+                            Procesando...
+                          </>
+                        ) : (
+                          '💳 Pagar ₡1,000'
+                        )}
+                      </Button>
+                    )}
                   </td>
 
                   {/* Status Badges */}
@@ -278,7 +333,7 @@ export function PlayersList({ players, onUpdate, onDelete }: PlayersListProps) {
         </div>
       </AnimatedCard>
 
-      {/* Delete Confirmation Dialog - Estilizado */}
+      {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open })}>
         <AlertDialogContent className="rounded-2xl border-0 shadow-large bg-surface-container-lowest">
           <AlertDialogHeader className="text-center pb-2">
@@ -317,13 +372,11 @@ export function PlayersList({ players, onUpdate, onDelete }: PlayersListProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Script para animaciones on-scroll - Usar CSS en globals.css en su lugar */}
     </>
   )
 }
 
-// Formulario de Edición - Estilizado
+// Formulario de Edición (sin cambios)
 function EditPlayerForm({ 
   player, 
   onSave, 

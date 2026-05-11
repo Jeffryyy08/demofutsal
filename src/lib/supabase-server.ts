@@ -13,11 +13,23 @@ export async function createClient() {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
+        // ✅ PROTEGER set con try-catch para evitar errores en contextos inválidos
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options })
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // Ignorar errores de contexto de cookies (esperado en Server Components)
+            // Las cookies se actualizarán correctamente en Server Actions/Route Handlers
+            console.debug('⚠️ Cookie set deferred (invalid context):', name)
+          }
         },
+        // ✅ PROTEGER remove con try-catch
         remove(name: string, options: CookieOptions) {
-          cookieStore.set({ name, value: '', ...options })
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch (error) {
+            console.debug('⚠️ Cookie remove deferred (invalid context):', name)
+          }
         },
       },
     }

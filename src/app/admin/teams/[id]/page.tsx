@@ -5,6 +5,7 @@ import { PlayersManagement } from '@/components/teams/PlayersManagement'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { AnimatedCard } from '@/components/ui/AnimatedCard'
+import { payPlayerInscriptionAction } from '@/actions/players'  // ✅ NUEVO IMPORT
 import Link from 'next/link'
 
 interface TeamPlayersPageProps {
@@ -28,15 +29,26 @@ export default async function TeamPlayersPage({ params }: TeamPlayersPageProps) 
     redirect('/admin/teams')
   }
 
-  // Obtener jugadores
+  // Obtener jugadores con información de pago
   const { data: players } = await supabase
     .from('players')
-    .select('*')
+    .select(`
+      *,
+      payments:player_payments (
+        id,
+        amount,
+        payment_type,
+        paid_at,
+        payment_method
+      )
+    `)
     .eq('team_id', id)
     .order('created_at', { ascending: false })
 
   const playerCount = players?.length || 0
   const captain = players?.find(p => p.is_captain)
+  const paidCount = players?.filter(p => p.has_paid_inscription).length || 0
+  const pendingCount = playerCount - paidCount
 
   return (
     <div className="min-h-screen bg-surface">
@@ -49,7 +61,6 @@ export default async function TeamPlayersPage({ params }: TeamPlayersPageProps) 
           boxShadow: '0 4px 20px rgba(0, 62, 199, 0.3)'
         }}
       >
-        {/* Efectos decorativos */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
           <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
           <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#fe6b00] rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
@@ -104,8 +115,8 @@ export default async function TeamPlayersPage({ params }: TeamPlayersPageProps) 
       {/* Main Content */}
       <main className="container-custom py-12 px-gutter space-y-12">
         
-        {/* Stats Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Stats Bar - Actualizada con estado de pagos */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {/* Total Players */}
           <AnimatedCard className="p-6" animation="slide-up" delay={0.1}>
             <div className="flex items-start justify-between">
@@ -124,67 +135,71 @@ export default async function TeamPlayersPage({ params }: TeamPlayersPageProps) 
                 ⭐
               </div>
             </div>
-            {playerCount > 0 && (
-              <div className="mt-4 pt-4 border-t border-outline-variant/20">
-                <Badge className="bg-primary/10 text-primary font-heading text-label-caps px-3 py-1">
-                  ✅ Listo para jugar
-                </Badge>
-              </div>
-            )}
           </AnimatedCard>
 
-          {/* Captain Info */}
+          {/* ✅ Pagaron Inscripción */}
           <AnimatedCard className="p-6" animation="slide-up" delay={0.2}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-heading text-label-caps text-on-surface-variant mb-2">
-                  Capitán del Equipo
+                  Inscritos (Pagaron)
+                </p>
+                <p className="font-heading text-headline-lg text-on-surface text-green-600">
+                  {paidCount}
+                </p>
+                <p className="font-body text-body-md text-on-surface-variant mt-2">
+                  Listos para jugar
+                </p>
+              </div>
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-green-500/10 text-3xl text-green-600">
+                ✅
+              </div>
+            </div>
+          </AnimatedCard>
+
+          {/* ⏳ Pendientes de Pago */}
+          <AnimatedCard className="p-6" animation="slide-up" delay={0.3}>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-heading text-label-caps text-on-surface-variant mb-2">
+                  Pendientes de Pago
+                </p>
+                <p className="font-heading text-headline-lg text-on-surface text-amber-600">
+                  {pendingCount}
+                </p>
+                <p className="font-body text-body-md text-on-surface-variant mt-2">
+                  ₡1,000 por jugador
+                </p>
+              </div>
+              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-amber-500/10 text-3xl text-amber-600">
+                ⏳
+              </div>
+            </div>
+          </AnimatedCard>
+
+          {/* Captain Info */}
+          <AnimatedCard className="p-6" animation="slide-up" delay={0.4}>
+            <div className="flex items-start justify-between">
+              <div>
+                <p className="font-heading text-label-caps text-on-surface-variant mb-2">
+                  Capitán
                 </p>
                 <p className="font-heading text-headline-md text-on-surface">
                   {captain?.full_name || '—'}
                 </p>
                 <p className="font-body text-body-md text-on-surface-variant mt-2">
-                  {captain ? 'Líder designado' : 'Sin capitán asignado'}
+                  {captain ? (captain.has_paid_inscription ? '✅ Inscrito' : '⏳ Pendiente') : 'Sin capitán'}
                 </p>
               </div>
               <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-secondary-container/10 text-3xl text-secondary">
                 🎖️
               </div>
             </div>
-            {!captain && (
-              <div className="mt-4 pt-4 border-t border-outline-variant/20">
-                <Badge variant="outline" className="font-heading text-label-caps text-xs border-outline-variant/50">
-                  ⚠️ Asignar capitán
-                </Badge>
-              </div>
-            )}
-          </AnimatedCard>
-
-          {/* Team Status */}
-          <AnimatedCard className="p-6" animation="slide-up" delay={0.3}>
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="font-heading text-label-caps text-on-surface-variant mb-2">
-                  Estado del Equipo
-                </p>
-                <p className="font-heading text-headline-lg text-on-surface">
-                  {team.is_active ? '✅ Activo' : '❌ Inactivo'}
-                </p>
-                <p className="font-body text-body-md text-on-surface-variant mt-2">
-                  {team.is_active ? 'Disponible para torneos' : 'No participa actualmente'}
-                </p>
-              </div>
-              <div className={`flex h-16 w-16 items-center justify-center rounded-xl text-3xl text-white ${
-                team.is_active ? 'bg-gradient-secondary shadow-glow-orange' : 'bg-surface-container-high text-on-surface'
-              }`}>
-                {team.is_active ? '🟢' : '🔴'}
-              </div>
-            </div>
           </AnimatedCard>
         </div>
 
-        {/* Players Management Component */}
-        <AnimatedCard className="overflow-hidden" animation="slide-up" delay={0.4}>
+        {/* Players Management Component (CRUD de jugadores) */}
+        <AnimatedCard className="overflow-hidden" animation="slide-up" delay={0.6}>
           <div className="p-6 border-b border-outline-variant/20">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-xl">
@@ -204,7 +219,7 @@ export default async function TeamPlayersPage({ params }: TeamPlayersPageProps) 
           <div className="p-6 bg-surface-container-low/50">
             <PlayersManagement 
               team={team}
-              initialPlayers={players || []}
+              initialPlayers={players?.map(({ payments, ...p }) => p) || []}  // Remover payments para el componente
             />
           </div>
         </AnimatedCard>
@@ -216,7 +231,7 @@ export default async function TeamPlayersPage({ params }: TeamPlayersPageProps) 
         <div className="flex items-center justify-center gap-2 text-on-surface-variant font-body text-body-md">
           <span>💡</span>
           <span>
-            Tip: El capitán del equipo será el punto de contacto principal para comunicaciones del torneo y decisiones tácticas.
+            Los jugadores pagan inscripción UNA VEZ por categoría. Una vez pagado, pueden participar en cualquier torneo de su sección.
           </span>
         </div>
       </div>

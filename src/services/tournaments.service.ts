@@ -278,7 +278,32 @@ export function calculateTournamentPreview(
 }
 
 // ============================================
-// ✅ INICIAR TORNEO - Con distribución dinámica
+// ✅ FUNCIÓN HELPER: Obtener próxima fecha disponible (Lunes-Viernes 11:20 AM)
+// ============================================
+function getNextAvailableMatchDate(startDate: Date): Date {
+  const date = new Date(startDate)
+  const now = new Date()
+  
+  // Configurar hora a 11:20 AM
+  date.setHours(11, 20, 0, 0)
+  date.setMilliseconds(0)
+  
+  // Si ya pasó la hora de hoy, empezar desde mañana
+  if (date <= now) {
+    date.setDate(date.getDate() + 1)
+    date.setHours(11, 20, 0, 0)
+  }
+  
+  // Saltar fines de semana (0 = domingo, 6 = sábado)
+  while (date.getDay() === 0 || date.getDay() === 6) {
+    date.setDate(date.getDate() + 1)
+  }
+  
+  return date
+}
+
+// ============================================
+// ✅ INICIAR TORNEO - Con distribución dinámica y fechas inteligentes
 // ============================================
 export async function startTournament(
   tournamentId: string
@@ -391,10 +416,16 @@ export async function startTournament(
     const phase = phases[0]
     console.log('✅ Fase creada:', phase.id)
 
-    // 7. ✅ Crear partidos CON group_label y fecha programada
+    // 7. ✅ Crear partidos CON FECHA INTELIGENTE (Lun-Vie 11:20 AM)
     let matchesCreated = 0
     const baseDate = tournament.start_date ? new Date(tournament.start_date) : new Date()
-    let dayOffset = 0
+    let currentDate = new Date(baseDate)
+
+    // Configurar fecha inicial a 11:20 AM
+    currentDate.setHours(11, 20, 0, 0)
+
+    console.log('📅 Fecha base:', baseDate)
+    console.log('⏰ Primera fecha programada:', currentDate)
 
     for (const group of groups) {
       const groupTeams = group.teams
@@ -405,8 +436,10 @@ export async function startTournament(
       // Round-robin DENTRO del grupo
       for (let i = 0; i < groupTeams.length; i++) {
         for (let j = i + 1; j < groupTeams.length; j++) {
-          const matchDate = new Date(baseDate)
-          matchDate.setDate(matchDate.getDate() + dayOffset)
+          // ✅ Obtener próxima fecha disponible (salta fines de semana y horas pasadas)
+          currentDate = getNextAvailableMatchDate(currentDate)
+          
+          const matchDate = new Date(currentDate)
 
           matches.push({
             tournament_id: tournamentId,
@@ -419,7 +452,9 @@ export async function startTournament(
             is_knockout: false,
             group_label: group.group_label,  // ✅ CRÍTICO para standings
           })
-          dayOffset++
+          
+          // ✅ Avanzar al próximo día hábil
+          currentDate.setDate(currentDate.getDate() + 1)
         }
       }
 
@@ -435,6 +470,10 @@ export async function startTournament(
 
         matchesCreated += matches.length
         console.log(`  ✅ ${matches.length} partidos creados para Grupo ${group.group_label}`)
+        
+        // Mostrar fechas de ejemplo
+        console.log(`     Primer partido: ${matches[0].match_date}`)
+        console.log(`     Último partido: ${matches[matches.length - 1].match_date}`)
       }
     }
 

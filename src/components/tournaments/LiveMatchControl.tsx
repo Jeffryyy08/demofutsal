@@ -4,9 +4,11 @@
 import { useState, useEffect } from 'react'
 import { Match, Team } from '@/types'
 import { supabase } from '@/lib/supabase'
+import { addMatchEventAction } from '@/actions/match-live'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { registerYellowCardAction } from '@/actions/players'
 import {
   Dialog,
   DialogContent,
@@ -23,6 +25,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Label } from '@/components/ui/label'
 import { Input } from '@/components/ui/input'
+import { AnimatedCard } from '@/components/ui/AnimatedCard'
 
 interface LiveMatchControlProps {
   match: Match & { teamA?: Team; teamB?: Team }
@@ -43,7 +46,7 @@ interface MatchEvent {
 
 interface Player {
   id: string
-  name: string  // ✅ Solo name (sin number)
+  name: string
 }
 
 export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
@@ -53,7 +56,7 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
   const [scoreA, setScoreA] = useState(match.score_a || 0)
   const [scoreB, setScoreB] = useState(match.score_b || 0)
   const [events, setEvents] = useState<MatchEvent[]>([])
-  
+
   // Tarjetas y faltas
   const [teamAStats, setTeamAStats] = useState({
     yellow_cards: match.team_a_yellow_cards || 0,
@@ -69,37 +72,41 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
   // Jugadores
   const [teamAPlayers, setTeamAPlayers] = useState<Player[]>([])
   const [teamBPlayers, setTeamBPlayers] = useState<Player[]>([])
-  
+
   // Estados del diálogo
   const [showActionDialog, setShowActionDialog] = useState<{
     type: 'goal' | 'yellow' | 'red' | 'foul'
   } | null>(null)
-  
+
   const [selectedTeam, setSelectedTeam] = useState<'A' | 'B' | null>(null)
   const [selectedPlayer, setSelectedPlayer] = useState('')
-  
+
   // Alertas
   const [showFoulAlert, setShowFoulAlert] = useState(false)
 
   const teamA = match.teamA
   const teamB = match.teamB
 
-  // ✅ Cargar jugadores al montar - CORREGIDO: full_name → name
+  // ✅ Cargar SOLO jugadores presentes al montar
   useEffect(() => {
-    const loadPlayers = async () => {
-      console.log('🔍 Cargando jugadores para:', { teamA: teamA?.id, teamB: teamB?.id })
-      
+    const loadPresentPlayers = async () => {
+      const { data: presentAttendances } = await supabase
+        .from('match_attendances')
+        .select('player_id, team_id')
+        .eq('match_id', match.id)
+        .eq('is_present', true)
+
+      const presentPlayerIds = presentAttendances?.map(a => a.player_id) || []
+
       if (teamA?.id) {
-        const { data: playersA, error: errorA } = await supabase
+        const { data: playersA } = await supabase
           .from('players')
-          .select('id, full_name')  // ✅ Columna correcta en BD
+          .select('id, full_name')
           .eq('team_id', teamA.id)
-          .order('full_name')  // ✅ Ordenar por nombre
-        
-        console.log('✅ Jugadores A encontrados:', playersA?.length || 0)
-        
+          .in('id', presentPlayerIds)
+          .order('full_name')
+
         if (playersA) {
-          // ✅ Transformar: full_name → name (interfaz Player)
           const transformedPlayers = playersA.map(p => ({
             id: p.id,
             name: p.full_name
@@ -107,18 +114,16 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
           setTeamAPlayers(transformedPlayers)
         }
       }
-      
+
       if (teamB?.id) {
-        const { data: playersB, error: errorB } = await supabase
+        const { data: playersB } = await supabase
           .from('players')
-          .select('id, full_name')  // ✅ Columna correcta en BD
+          .select('id, full_name')
           .eq('team_id', teamB.id)
-          .order('full_name')  // ✅ Ordenar por nombre
-        
-        console.log('✅ Jugadores B encontrados:', playersB?.length || 0)
-        
+          .in('id', presentPlayerIds)
+          .order('full_name')
+
         if (playersB) {
-          // ✅ Transformar: full_name → name (interfaz Player)
           const transformedPlayers = playersB.map(p => ({
             id: p.id,
             name: p.full_name
@@ -127,20 +132,20 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
         }
       }
     }
-    
-    loadPlayers()
-  }, [teamA?.id, teamB?.id])
+
+    loadPresentPlayers()
+  }, [teamA?.id, teamB?.id, match.id])
 
   // Cronómetro
   useEffect(() => {
     let interval: NodeJS.Timeout
-    
+
     if (isRunning) {
       interval = setInterval(() => {
         setCurrentTime(prev => prev + 1)
       }, 1000)
     }
-    
+
     return () => clearInterval(interval)
   }, [isRunning])
 
@@ -167,8 +172,7 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
 
   const handleTeamSelect = async (team: 'A' | 'B') => {
     setSelectedTeam(team)
-    
-    // Para faltas, confirmar inmediatamente
+
     if (showActionDialog?.type === 'foul') {
       await handleFoulConfirm(team)
       return
@@ -181,21 +185,20 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
     const teamId = team === 'A' ? match.team_a_id : match.team_b_id
     const currentFouls = team === 'A' ? teamAStats.fouls : teamBStats.fouls
     const newFouls = currentFouls + 1
-    
-    // Alerta de 5ta falta
+
     if (newFouls === 5) {
       setShowFoulAlert(true)
       setTimeout(() => setShowFoulAlert(false), 5000)
     }
-    
+
     if (team === 'A') {
       setTeamAStats(prev => ({ ...prev, fouls: prev.fouls + 1 }))
     } else {
       setTeamBStats(prev => ({ ...prev, fouls: prev.fouls + 1 }))
     }
-    
+
     addEvent('foul', teamId || '', teamName || '', teamSection || '', '📋 Falta')
-    
+
     await supabase
       .from('matches')
       .update({
@@ -203,23 +206,22 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
         team_b_fouls: team === 'B' ? teamBStats.fouls + 1 : teamBStats.fouls,
       })
       .eq('id', match.id)
-    
+
     setShowActionDialog(null)
     setSelectedTeam(null)
   }
 
   const handlePlayerConfirm = async () => {
     if (!selectedTeam || !selectedPlayer || !showActionDialog) return
-    
+
     const players = selectedTeam === 'A' ? teamAPlayers : teamBPlayers
-    // ✅ Soporte para jugador seleccionado por ID o nombre manual
     const player = players.find(p => p.id === selectedPlayer)
-    const playerName = player?.name || selectedPlayer  // ✅ Usa el nombre manual si no es ID
-    
+    const playerName = player?.name || selectedPlayer
+
     const teamName = selectedTeam === 'A' ? teamA?.name : teamB?.name
     const teamSection = selectedTeam === 'A' ? teamA?.section : teamB?.section
     const teamId = selectedTeam === 'A' ? match.team_a_id : match.team_b_id
-    
+
     switch (showActionDialog.type) {
       case 'goal':
         if (selectedTeam === 'A') {
@@ -227,9 +229,9 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
         } else {
           setScoreB(prev => prev + 1)
         }
-        
+
         addEvent('goal', teamId || '', teamName || '', teamSection || '', '⚽ Gol', player?.id, playerName)
-        
+
         await supabase
           .from('matches')
           .update({
@@ -238,16 +240,16 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
           })
           .eq('id', match.id)
         break
-        
+
       case 'yellow':
         if (selectedTeam === 'A') {
           setTeamAStats(prev => ({ ...prev, yellow_cards: prev.yellow_cards + 1 }))
         } else {
           setTeamBStats(prev => ({ ...prev, yellow_cards: prev.yellow_cards + 1 }))
         }
-        
+
         addEvent('yellow_card', teamId || '', teamName || '', teamSection || '', '🟨 Tarjeta Amarilla', player?.id, playerName)
-        
+
         await supabase
           .from('matches')
           .update({
@@ -255,17 +257,26 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
             team_b_yellow_cards: selectedTeam === 'B' ? teamBStats.yellow_cards + 1 : teamBStats.yellow_cards,
           })
           .eq('id', match.id)
+
+        await registerYellowCardAction(
+          match.tournament_id || '',
+          player?.id || '',
+          teamId || '',
+          match.id,
+          'cash'
+        )
+
         break
-        
+
       case 'red':
         if (selectedTeam === 'A') {
           setTeamAStats(prev => ({ ...prev, red_cards: prev.red_cards + 1 }))
         } else {
           setTeamBStats(prev => ({ ...prev, red_cards: prev.red_cards + 1 }))
         }
-        
+
         addEvent('red_card', teamId || '', teamName || '', teamSection || '', '🟥 Tarjeta Roja', player?.id, playerName)
-        
+
         await supabase
           .from('matches')
           .update({
@@ -273,9 +284,20 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
             team_b_red_cards: selectedTeam === 'B' ? teamBStats.red_cards + 1 : teamBStats.red_cards,
           })
           .eq('id', match.id)
+
+        await addMatchEventAction({
+          match_id: match.id,
+          event_type: 'red_card',
+          team_id: teamId || '',
+          player_id: player?.id || null,
+          player_name: playerName || null,
+          minute: Math.floor(currentTime / 60) + 1,
+          extra_minute: 0,
+          description: `🟥 Tarjeta Roja - ${playerName || 'Jugador'}`,
+        })
         break
     }
-    
+
     setShowActionDialog(null)
     setSelectedTeam(null)
     setSelectedPlayer('')
@@ -322,239 +344,267 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 p-4 md:p-8">
-      {/* Header */}
-      <div className="max-w-7xl mx-auto mb-6">
-        <div className="flex items-center justify-between bg-white rounded-2xl shadow-lg p-4 md:p-6">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              ⚽ Control en Vivo
-            </h1>
-            <p className="text-sm text-gray-500 mt-1">
-              {teamA?.name} vs {teamB?.name}
-            </p>
+    <div className="min-h-screen bg-surface">
+      {/* Header con Gradiente FutsalCTP */}
+      <header 
+        className="py-6 px-gutter text-white relative overflow-hidden"
+        style={{
+          background: 'linear-gradient(135deg, #003ec7 0%, #0052ff 50%, #0038b6 100%)',
+          boxShadow: '0 4px 20px rgba(0, 62, 199, 0.3)'
+        }}
+      >
+        <div className="absolute inset-0 opacity-10 pointer-events-none">
+          <div className="absolute top-0 left-0 w-32 h-32 bg-white rounded-full blur-2xl -translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 right-0 w-32 h-32 bg-[#fe6b00] rounded-full blur-2xl translate-x-1/2 translate-y-1/2" />
+        </div>
+        
+        <div className="max-w-7xl mx-auto relative z-10">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold font-heading flex items-center gap-2">
+                <span className="text-3xl">⚽</span>
+                Control en Vivo
+              </h1>
+              <p className="text-blue-100 font-body mt-1">
+                {teamA?.name} <span className="mx-2">vs</span> {teamB?.name}
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              onClick={onClose}
+              className="rounded-full px-4 py-2 border-white/30 text-white hover:bg-white/20 transition-colors"
+            >
+              ✕ Cerrar
+            </Button>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={onClose}
-            className="rounded-full px-4 py-2 hover:bg-gray-100 transition-colors"
+        </div>
+      </header>
+
+      <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+
+        {/* Alerta de 5ta Falta */}
+        {showFoulAlert && (
+          <AnimatedCard animation="slide-down" className="bg-[#fe6b00]/10 border border-[#fe6b00]/30">
+            <Alert className="bg-transparent border-0 p-0">
+              <AlertDescription className="text-[#fe6b00] font-bold font-heading flex items-center gap-2">
+                <span className="text-2xl">🚨</span>
+                ¡ALERTA! 5ta Falta Acumulada
+              </AlertDescription>
+              <p className="text-[#fe6b00]/80 font-body text-sm mt-1">
+                ⚠️ La próxima falta (6ta) será DOBLE PENALTI
+              </p>
+            </Alert>
+          </AnimatedCard>
+        )}
+
+        {/* Marcador Principal */}
+        <AnimatedCard animation="scale-in" className="overflow-hidden">
+          <div 
+            className="p-6 md:p-8 text-white relative"
+            style={{
+              background: 'linear-gradient(135deg, #003ec7 0%, #0038b6 100%)',
+            }}
           >
-            ✕ Cerrar
-          </Button>
-        </div>
-      </div>
-
-      {/* Alerta de 5ta Falta */}
-      {showFoulAlert && (
-        <div className="max-w-7xl mx-auto mb-6">
-          <Alert className="bg-red-50 border-red-500 border-2">
-            <AlertDescription className="text-red-800 font-bold text-lg">
-              🚨 ¡ALERTA! 5ta Falta Acumulada
-            </AlertDescription>
-            <p className="text-red-700 mt-1">
-              ⚠️ La próxima falta (6ta) será DOBLE PENALTI
-            </p>
-          </Alert>
-        </div>
-      )}
-
-      {/* Marcador Principal */}
-      <div className="max-w-7xl mx-auto mb-6">
-        <Card className="bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 text-white border-0 shadow-2xl">
-          <CardContent className="p-6 md:p-10">
-            <div className="grid grid-cols-3 gap-4 md:gap-8 items-center">
+            <div className="absolute inset-0 opacity-10 pointer-events-none">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-[#fe6b00] rounded-full blur-3xl" />
+            </div>
+            
+            <div className="grid grid-cols-3 gap-4 md:gap-8 items-center relative z-10">
               {/* Equipo A */}
-              <div className="text-center space-y-3">
-                <h2 className="text-xl md:text-2xl font-bold">{teamA?.name}</h2>
-                <div className="text-sm text-blue-300 font-medium">{teamA?.section}</div>
-                <div className="text-6xl md:text-8xl font-bold bg-gradient-to-br from-blue-400 to-blue-600 bg-clip-text text-transparent">
+              <div className="text-center space-y-2">
+                <h2 className="text-lg md:text-xl font-bold font-heading">{teamA?.name}</h2>
+                <div className="text-xs text-blue-200 font-body">{teamA?.section}</div>
+                <div className="text-5xl md:text-7xl font-bold font-mono">
                   {scoreA}
                 </div>
-                <div className="flex items-center justify-center gap-2 text-sm flex-wrap">
-                  <Badge variant="secondary" className="bg-yellow-500/80 text-white">
+                <div className="flex items-center justify-center gap-1 text-xs flex-wrap">
+                  <Badge className="bg-[#fe6b00]/20 text-[#fe6b00] border border-[#fe6b00]/30 font-body">
                     🟨 {teamAStats.yellow_cards}
                   </Badge>
-                  <Badge variant="secondary" className="bg-red-600/80 text-white">
+                  <Badge className="bg-red-500/20 text-red-300 border border-red-500/30 font-body">
                     🟥 {teamAStats.red_cards}
                   </Badge>
-                  <Badge variant="secondary" className="bg-gray-600/80 text-white">
+                  <Badge className="bg-white/10 text-white/80 border border-white/20 font-body">
                     ⚽ {teamAStats.fouls}
                   </Badge>
                 </div>
               </div>
 
               {/* Marcador Central */}
-              <div className="text-center space-y-4">
-                <div className="text-5xl md:text-7xl font-mono font-bold bg-gradient-to-r from-green-400 to-emerald-400 bg-clip-text text-transparent">
+              <div className="text-center space-y-3">
+                <div className="text-4xl md:text-6xl font-mono font-bold text-[#fe6b00]">
                   {formatTime(currentTime)}
                 </div>
-                <div className="text-lg text-gray-300">
+                <div className="text-sm text-blue-200 font-body">
                   {period === 1 ? '1er Tiempo' : '2do Tiempo'}
                 </div>
-                <div className="flex items-center justify-center gap-3">
+                <div className="flex items-center justify-center gap-2">
                   <Button
-                    size="lg"
+                    size="sm"
                     onClick={() => setIsRunning(!isRunning)}
-                    className={`rounded-full px-6 font-bold shadow-lg transition-all ${
+                    className={`rounded-full px-4 font-heading text-label-caps text-xs transition-all ${
                       isRunning 
-                        ? 'bg-amber-500 hover:bg-amber-600' 
+                        ? 'bg-[#fe6b00] hover:bg-[#fe6b00]/90' 
                         : 'bg-green-500 hover:bg-green-600'
                     }`}
                   >
                     {isRunning ? '⏸️ Pausa' : '▶️ Iniciar'}
                   </Button>
                   <Button
-                    size="lg"
+                    size="sm"
                     variant="outline"
                     onClick={() => {
                       setCurrentTime(0)
                       setIsRunning(false)
                     }}
-                    className="rounded-full px-4 border-white/30 text-white hover:bg-white/20"
+                    className="rounded-full px-3 border-white/30 text-white hover:bg-white/20 text-xs"
                   >
-                    🔄 Reiniciar
+                    🔄
                   </Button>
                 </div>
               </div>
 
               {/* Equipo B */}
-              <div className="text-center space-y-3">
-                <h2 className="text-xl md:text-2xl font-bold">{teamB?.name}</h2>
-                <div className="text-sm text-purple-300 font-medium">{teamB?.section}</div>
-                <div className="text-6xl md:text-8xl font-bold bg-gradient-to-br from-purple-400 to-purple-600 bg-clip-text text-transparent">
+              <div className="text-center space-y-2">
+                <h2 className="text-lg md:text-xl font-bold font-heading">{teamB?.name}</h2>
+                <div className="text-xs text-blue-200 font-body">{teamB?.section}</div>
+                <div className="text-5xl md:text-7xl font-bold font-mono">
                   {scoreB}
                 </div>
-                <div className="flex items-center justify-center gap-2 text-sm flex-wrap">
-                  <Badge variant="secondary" className="bg-yellow-500/80 text-white">
+                <div className="flex items-center justify-center gap-1 text-xs flex-wrap">
+                  <Badge className="bg-[#fe6b00]/20 text-[#fe6b00] border border-[#fe6b00]/30 font-body">
                     🟨 {teamBStats.yellow_cards}
                   </Badge>
-                  <Badge variant="secondary" className="bg-red-600/80 text-white">
+                  <Badge className="bg-red-500/20 text-red-300 border border-red-500/30 font-body">
                     🟥 {teamBStats.red_cards}
                   </Badge>
-                  <Badge variant="secondary" className="bg-gray-600/80 text-white">
+                  <Badge className="bg-white/10 text-white/80 border border-white/20 font-body">
                     ⚽ {teamBStats.fouls}
                   </Badge>
                 </div>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </AnimatedCard>
 
-      {/* Botones de Control */}
-      <div className="max-w-7xl mx-auto mb-6">
-        <div className="flex flex-wrap justify-center gap-3 mb-6">
-          <Button
-            onClick={handleFinishPeriod}
-            variant="outline"
-            className="rounded-full px-6 py-3 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-semibold transition-all"
-          >
-            {period === 1 ? '⏭️ Finalizar 1er Tiempo' : '🏁 Finalizar Partido'}
-          </Button>
-          <Button
-            onClick={async () => {
-              await supabase
-                .from('matches')
-                .update({ status: 'finished', score_a: scoreA, score_b: scoreB })
-                .eq('id', match.id)
-              onClose()
-            }}
-            variant="outline"
-            className="rounded-full px-6 py-3 border-2 border-red-500 text-red-600 hover:bg-red-50 font-semibold transition-all"
-          >
-            🚫 Finalizar Partido
-          </Button>
-        </div>
-
-        {/* Botones de Acciones */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Button
-            onClick={() => setShowActionDialog({ type: 'goal' })}
-            className="h-24 text-lg font-bold bg-gradient-to-br from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg transform hover:scale-105 transition-all rounded-2xl"
-          >
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-3xl">⚽</span>
-              <span>Gol</span>
+        {/* Botones de Control */}
+        <AnimatedCard animation="slide-up" delay={0.1}>
+          <div className="p-4 space-y-4">
+            
+            {/* Botones de período */}
+            <div className="flex flex-wrap justify-center gap-2">
+              <Button
+                onClick={handleFinishPeriod}
+                variant="outline"
+                className="rounded-full px-4 py-2 border-[#003ec7] text-[#003ec7] hover:bg-[#003ec7]/5 font-heading text-label-caps text-xs"
+              >
+                {period === 1 ? '⏭️ Finalizar 1er Tiempo' : '🏁 Finalizar Partido'}
+              </Button>
+              <Button
+                onClick={async () => {
+                  await supabase
+                    .from('matches')
+                    .update({ status: 'finished', score_a: scoreA, score_b: scoreB })
+                    .eq('id', match.id)
+                  onClose()
+                }}
+                variant="outline"
+                className="rounded-full px-4 py-2 border-red-500 text-red-500 hover:bg-red-500/5 font-heading text-label-caps text-xs"
+              >
+                🚫 Finalizar
+              </Button>
             </div>
-          </Button>
 
-          <Button
-            onClick={() => setShowActionDialog({ type: 'yellow' })}
-            className="h-24 text-lg font-bold bg-gradient-to-br from-yellow-400 to-amber-500 hover:from-yellow-500 hover:to-amber-600 text-white shadow-lg transform hover:scale-105 transition-all rounded-2xl"
-          >
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-3xl">🟨</span>
-              <span>Amarilla</span>
+            {/* Botones de Acciones - Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <Button
+                onClick={() => setShowActionDialog({ type: 'goal' })}
+                className="h-20 rounded-xl font-heading text-label-caps text-xs bg-gradient-primary hover:shadow-glow transition-all"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-2xl">⚽</span>
+                  <span>Gol</span>
+                </div>
+              </Button>
+
+              <Button
+                onClick={() => setShowActionDialog({ type: 'yellow' })}
+                className="h-20 rounded-xl font-heading text-label-caps text-xs bg-[#fe6b00]/10 text-[#fe6b00] hover:bg-[#fe6b00]/20 border border-[#fe6b00]/30 transition-all"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-2xl">🟨</span>
+                  <span>Amarilla</span>
+                </div>
+              </Button>
+
+              <Button
+                onClick={() => setShowActionDialog({ type: 'red' })}
+                className="h-20 rounded-xl font-heading text-label-caps text-xs bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/30 transition-all"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-2xl">🟥</span>
+                  <span>Roja</span>
+                </div>
+              </Button>
+
+              <Button
+                onClick={() => setShowActionDialog({ type: 'foul' })}
+                variant="outline"
+                className="h-20 rounded-xl font-heading text-label-caps text-xs border-outline-variant/30 hover:bg-surface-container-low transition-all"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-2xl">📋</span>
+                  <span>Falta</span>
+                </div>
+              </Button>
             </div>
-          </Button>
 
-          <Button
-            onClick={() => setShowActionDialog({ type: 'red' })}
-            className="h-24 text-lg font-bold bg-gradient-to-br from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white shadow-lg transform hover:scale-105 transition-all rounded-2xl"
-          >
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-3xl">🟥</span>
-              <span>Roja</span>
-            </div>
-          </Button>
+          </div>
+        </AnimatedCard>
 
-          <Button
-            onClick={() => setShowActionDialog({ type: 'foul' })}
-            variant="outline"
-            className="h-24 text-lg font-bold border-2 border-gray-400 hover:bg-gray-100 text-gray-700 shadow-lg transform hover:scale-105 transition-all rounded-2xl"
-          >
-            <div className="flex flex-col items-center gap-1">
-              <span className="text-3xl">📋</span>
-              <span>Falta</span>
-            </div>
-          </Button>
-        </div>
-      </div>
-
-      {/* Historial de Eventos */}
-      <div className="max-w-7xl mx-auto">
-        <Card className="bg-white shadow-xl border-0">
-          <CardContent className="p-6">
-            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <span className="text-2xl">📜</span>
+        {/* Historial de Eventos */}
+        <AnimatedCard animation="slide-up" delay={0.2}>
+          <div className="p-4">
+            <h3 className="font-heading text-headline-sm text-on-surface mb-4 flex items-center gap-2">
+              <span className="text-xl">📜</span>
               Historial de Eventos
             </h3>
-            
+
             {events.length === 0 ? (
-              <div className="text-center py-12 text-gray-400">
-                <div className="text-6xl mb-4">📝</div>
-                <p className="text-lg">No hay eventos registrados aún</p>
-                <p className="text-sm mt-2">Los eventos aparecerán aquí a medida que ocurran</p>
+              <div className="text-center py-8 text-on-surface-variant">
+                <div className="text-4xl mb-3">📝</div>
+                <p className="font-body">No hay eventos registrados aún</p>
+                <p className="text-xs mt-1">Los eventos aparecerán aquí a medida que ocurran</p>
               </div>
             ) : (
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+              <div className="space-y-2 max-h-80 overflow-y-auto">
                 {events.map((event) => (
                   <div
                     key={event.id}
-                    className={`flex items-center justify-between p-4 rounded-xl border-l-4 ${
+                    className={`flex items-center justify-between p-3 rounded-xl border-l-4 ${
                       event.type === 'goal' 
-                        ? 'bg-green-50 border-green-500' 
+                        ? 'bg-green-500/5 border-green-500' 
                         : event.type === 'yellow_card'
-                        ? 'bg-yellow-50 border-yellow-500'
+                        ? 'bg-[#fe6b00]/5 border-[#fe6b00]'
                         : event.type === 'red_card'
-                        ? 'bg-red-50 border-red-500'
-                        : 'bg-gray-50 border-gray-400'
+                        ? 'bg-red-500/5 border-red-500'
+                        : 'bg-surface-container-low border-outline-variant/30'
                     }`}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className="text-2xl font-mono font-bold text-gray-600">
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm font-mono font-bold text-on-surface-variant">
                         {event.minute}'
                       </div>
                       <div>
-                        <div className="font-semibold text-gray-800">
+                        <div className="font-body text-body-sm text-on-surface font-medium">
                           {event.description}
                         </div>
-                        <div className="text-sm text-gray-500">
-                          {event.team_name} ({event.team_section}) {event.player_name && `• ${event.player_name}`}
+                        <div className="text-xs text-on-surface-variant">
+                          {event.team_name} {event.player_name && `• ${event.player_name}`}
                         </div>
                       </div>
                     </div>
-                    <div className="text-2xl">
+                    <div className="text-xl">
                       {event.type === 'goal' && '⚽'}
                       {event.type === 'yellow_card' && '🟨'}
                       {event.type === 'red_card' && '🟥'}
@@ -564,179 +614,175 @@ export function LiveMatchControl({ match, onClose }: LiveMatchControlProps) {
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </div>
+          </div>
+        </AnimatedCard>
 
-      {/* Diálogo para FALTAS - Solo botones de equipo */}
+      </main>
+
+      {/* Diálogo para FALTAS */}
       <Dialog open={showActionDialog?.type === 'foul'} onOpenChange={() => {
         setShowActionDialog(null)
         setSelectedTeam(null)
       }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              <span className="text-3xl">📋</span>
-              Registrar Falta
-            </DialogTitle>
-          </DialogHeader>
-          <div className="grid grid-cols-2 gap-4 pt-4">
-            {/* Botón Equipo A */}
-            <Button
-              onClick={() => handleFoulConfirm('A')}
-              className="h-32 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg rounded-2xl"
-            >
-              <span className="text-4xl">👕</span>
-              <div className="text-center">
-                <div className="text-lg font-bold">{teamA?.name}</div>
-                <div className="text-sm opacity-80">{teamA?.section}</div>
-              </div>
-            </Button>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+          {/* Header */}
+          <div 
+            className="p-4 text-white"
+            style={{ background: 'linear-gradient(135deg, #003ec7 0%, #0038b6 100%)' }}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold font-heading flex items-center gap-2">
+                <span className="text-2xl">📋</span>
+                Registrar Falta
+              </DialogTitle>
+            </DialogHeader>
+          </div>
+          
+          <div className="p-4 space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={() => handleFoulConfirm('A')}
+                className="h-24 rounded-xl font-heading text-label-caps bg-[#003ec7]/10 text-[#003ec7] hover:bg-[#003ec7]/20 border border-[#003ec7]/30 transition-all"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-3xl">👕</span>
+                  <span className="text-sm font-medium">{teamA?.name}</span>
+                  <span className="text-xs text-on-surface-variant">{teamA?.section}</span>
+                </div>
+              </Button>
 
-            {/* Botón Equipo B */}
+              <Button
+                onClick={() => handleFoulConfirm('B')}
+                className="h-24 rounded-xl font-heading text-label-caps bg-[#003ec7]/10 text-[#003ec7] hover:bg-[#003ec7]/20 border border-[#003ec7]/30 transition-all"
+              >
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-3xl">👕</span>
+                  <span className="text-sm font-medium">{teamB?.name}</span>
+                  <span className="text-xs text-on-surface-variant">{teamB?.section}</span>
+                </div>
+              </Button>
+            </div>
             <Button
-              onClick={() => handleFoulConfirm('B')}
-              className="h-32 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg rounded-2xl"
+              variant="outline"
+              onClick={() => {
+                setShowActionDialog(null)
+                setSelectedTeam(null)
+              }}
+              className="w-full rounded-full font-heading text-label-caps text-xs"
             >
-              <span className="text-4xl">👕</span>
-              <div className="text-center">
-                <div className="text-lg font-bold">{teamB?.name}</div>
-                <div className="text-sm opacity-80">{teamB?.section}</div>
-              </div>
+              Cancelar
             </Button>
           </div>
-          <Button
-            variant="outline"
-            onClick={() => {
-              setShowActionDialog(null)
-              setSelectedTeam(null)
-            }}
-            className="mt-4 h-12"
-          >
-            Cancelar
-          </Button>
         </DialogContent>
       </Dialog>
 
-      {/* Diálogo para GOL/TARJETAS - Equipo + Jugador */}
+      {/* Diálogo para GOL/TARJETAS */}
       <Dialog open={showActionDialog !== null && showActionDialog.type !== 'foul'} onOpenChange={() => {
         setShowActionDialog(null)
         setSelectedTeam(null)
         setSelectedPlayer('')
       }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="text-2xl flex items-center gap-2">
-              <span className="text-3xl">{getActionIcon()}</span>
-              {getActionTitle()}
-            </DialogTitle>
-          </DialogHeader>
+        <DialogContent className="sm:max-w-md p-0 overflow-hidden">
+          {/* Header */}
+          <div 
+            className="p-4 text-white"
+            style={{ background: 'linear-gradient(135deg, #003ec7 0%, #0038b6 100%)' }}
+          >
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold font-heading flex items-center gap-2">
+                <span className="text-2xl">{getActionIcon()}</span>
+                {getActionTitle()}
+              </DialogTitle>
+            </DialogHeader>
+          </div>
           
-          {!selectedTeam ? (
-            /* Paso 1: Seleccionar Equipo */
-            <div className="grid grid-cols-2 gap-4 pt-4">
-              <Button
-                onClick={() => setSelectedTeam('A')}
-                className="h-32 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white shadow-lg rounded-2xl"
-              >
-                <span className="text-4xl">👕</span>
-                <div className="text-center">
-                  <div className="text-lg font-bold">{teamA?.name}</div>
-                  <div className="text-sm opacity-80">{teamA?.section}</div>
-                </div>
-              </Button>
+          <div className="p-4 space-y-4">
+            {!selectedTeam ? (
+              <div className="grid grid-cols-2 gap-3">
+                <Button
+                  onClick={() => setSelectedTeam('A')}
+                  className="h-24 rounded-xl font-heading text-label-caps bg-[#003ec7]/10 text-[#003ec7] hover:bg-[#003ec7]/20 border border-[#003ec7]/30 transition-all"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-3xl">👕</span>
+                    <span className="text-sm font-medium">{teamA?.name}</span>
+                    <span className="text-xs text-on-surface-variant">{teamA?.section}</span>
+                  </div>
+                </Button>
 
-              <Button
-                onClick={() => setSelectedTeam('B')}
-                className="h-32 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white shadow-lg rounded-2xl"
-              >
-                <span className="text-4xl">👕</span>
-                <div className="text-center">
-                  <div className="text-lg font-bold">{teamB?.name}</div>
-                  <div className="text-sm opacity-80">{teamB?.section}</div>
-                </div>
-              </Button>
-            </div>
-          ) : (
-            /* Paso 2: Seleccionar Jugador */
-            <div className="space-y-4 pt-4">
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <p className="text-sm text-blue-800 font-medium">
-                  Equipo seleccionado: <strong>{selectedTeam === 'A' ? teamA?.name : teamB?.name}</strong> ({selectedTeam === 'A' ? teamA?.section : teamB?.section})
-                </p>
+                <Button
+                  onClick={() => setSelectedTeam('B')}
+                  className="h-24 rounded-xl font-heading text-label-caps bg-[#003ec7]/10 text-[#003ec7] hover:bg-[#003ec7]/20 border border-[#003ec7]/30 transition-all"
+                >
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-3xl">👕</span>
+                    <span className="text-sm font-medium">{teamB?.name}</span>
+                    <span className="text-xs text-on-surface-variant">{teamB?.section}</span>
+                  </div>
+                </Button>
               </div>
-              
-              <div>
-                <Label className="text-base font-semibold">Jugador</Label>
+            ) : (
+              <div className="space-y-4">
+                <div className="p-3 bg-[#003ec7]/5 rounded-xl border border-[#003ec7]/20">
+                  <p className="text-sm font-body text-on-surface">
+                    Equipo: <strong className="text-[#003ec7]">{selectedTeam === 'A' ? teamA?.name : teamB?.name}</strong>
+                  </p>
+                </div>
                 
-                {/* ✅ Verificar si hay jugadores cargados */}
-                {getCurrentPlayers().length === 0 ? (
-                  <div className="mt-2 space-y-3">
-                    <div className="p-4 bg-yellow-50 border border-yellow-300 rounded-lg">
-                      <p className="text-sm text-yellow-800 font-medium">
-                        ⚠️ No hay jugadores registrados
-                      </p>
-                      <p className="text-xs text-yellow-700 mt-1">
-                        Ingresa el nombre manualmente o agrega jugadores al equipo
+                <div>
+                  <Label className="font-heading text-label-caps text-on-surface-variant">Jugador</Label>
+                  
+                  {getCurrentPlayers().length === 0 ? (
+                    <div className="mt-2 p-3 bg-[#fe6b00]/5 border border-[#fe6b00]/20 rounded-xl">
+                      <p className="text-sm text-[#fe6b00] font-body">
+                        ⚠️ No hay jugadores presentes
                       </p>
                     </div>
-                    
-                    {/* ✅ Input manual como fallback */}
-                    <Input
-                      value={selectedPlayer}
-                      onChange={(e) => setSelectedPlayer(e.target.value)}
-                      placeholder="Nombre del jugador"  // ✅ Sin "o número"
-                      className="h-12"
-                    />
-                  </div>
-                ) : (
-                  /* ✅ Select normal cuando hay jugadores */
-                  <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
-                    <SelectTrigger className="h-12 mt-2">
-                      <SelectValue placeholder="Selecciona un jugador" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {getCurrentPlayers().map(player => (
-                        <SelectItem 
-                          key={player.id} 
-                          value={player.id}
-                          className="cursor-pointer"
-                        >
-                          {player.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
+                  ) : (
+                    <Select value={selectedPlayer} onValueChange={setSelectedPlayer}>
+                      <SelectTrigger className="mt-2 rounded-xl">
+                        <SelectValue placeholder="Selecciona un jugador" />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-60">
+                        {getCurrentPlayers().map(player => (
+                          <SelectItem key={player.id} value={player.id}>
+                            {player.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+                
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setSelectedTeam(null)
+                      setSelectedPlayer('')
+                    }}
+                    className="flex-1 rounded-full font-heading text-label-caps text-xs"
+                  >
+                    ← Volver
+                  </Button>
+                  <Button
+                    onClick={handlePlayerConfirm}
+                    disabled={!selectedPlayer}
+                    className={`flex-1 rounded-full font-heading text-label-caps text-xs ${
+                      showActionDialog?.type === 'goal' ? 'bg-gradient-primary' :
+                      showActionDialog?.type === 'yellow' ? 'bg-[#fe6b00] hover:bg-[#fe6b00]/90' :
+                      'bg-red-500 hover:bg-red-600'
+                    } text-white disabled:opacity-50`}
+                  >
+                    Confirmar
+                  </Button>
+                </div>
               </div>
-              
-              <div className="flex gap-3 pt-4">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setSelectedTeam(null)
-                    setSelectedPlayer('')
-                  }}
-                  className="flex-1 h-12"
-                >
-                  ← Volver
-                </Button>
-                <Button
-                  onClick={handlePlayerConfirm}
-                  disabled={!selectedPlayer}
-                  className={`flex-1 h-12 font-bold ${
-                    showActionDialog?.type === 'goal' ? 'bg-green-600 hover:bg-green-700' :
-                    showActionDialog?.type === 'yellow' ? 'bg-yellow-500 hover:bg-yellow-600' :
-                    'bg-red-600 hover:bg-red-700'
-                  } text-white disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  Confirmar
-                </Button>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </DialogContent>
       </Dialog>
+
     </div>
   )
 }

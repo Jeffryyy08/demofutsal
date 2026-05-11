@@ -3,12 +3,13 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import Image from 'next/image'
 import { cn } from '@/lib/utils'
 
 const menuItems = [
   { 
     href: '/admin', 
-    label: 'Dashboard', 
+    label: 'Panel', 
     icon: '📊',
     description: 'Resumen general'
   },
@@ -24,24 +25,12 @@ const menuItems = [
     icon: '👥',
     description: 'Registrar equipos'
   },
-  { 
-    href: '/admin/players', 
-    label: 'Jugadores', 
-    icon: '⭐',
-    description: 'Gestión de jugadores'
-  },
-  { 
-    href: '/admin/matches', 
-    label: 'Partidos', 
-    icon: '⚽',
-    description: 'Programar partidos'
-  },
-  { 
-    href: '/admin/standings', 
-    label: 'Posiciones', 
-    icon: '📈',
-    description: 'Tabla de posiciones'
-  },
+  //{ 
+    //href: '/admin/standings', 
+    //label: 'Posiciones', 
+    //icon: '📈',
+    //description: 'Tabla de posiciones'
+  //},
   { 
     href: '/admin/sanctions', 
     label: 'Sanciones', 
@@ -55,7 +44,7 @@ const menuItems = [
     description: 'Ajustes del sistema'
   },
   { 
-    href: '/admin/reports', 
+    href: '/admin/reports/financial', 
     label: 'Reportes', 
     icon: '📋',
     description: 'Informes y estadísticas'
@@ -67,31 +56,39 @@ export function Sidebar() {
 
   return (
     <aside className="fixed left-0 top-0 z-50 h-screen w-72 border-r border-outline-variant/20 bg-surface-container-lowest/95 backdrop-blur-xl">
-      {/* Header con Logo */}
-      <div className="relative h-20 border-b border-outline-variant/20 px-6">
-        <div 
-          className="absolute inset-0 bg-gradient-primary opacity-5"
-          style={{
-            background: 'linear-gradient(135deg, #003ec7 0%, #0052ff 100%)',
-          }}
-        />
-        <Link href="/admin" className="relative flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-primary text-2xl text-white shadow-glow">
-            ⚽
+      
+      {/* Header con Logo - VERTICAL */}
+      <div className="relative border-b border-outline-variant/20 px-6 py-6">
+        <Link 
+          href="/admin" 
+          className="flex flex-col items-center justify-center"
+        >
+          {/* Logo Icon */}
+          <div className="relative w-24 h-24 mb-3">
+            <Image
+              src="/images/logoicon.png"
+              alt="FutsalCTP"
+              fill
+              className="object-contain"
+              priority
+            />
           </div>
-          <div>
-            <h1 className="font-heading text-lg font-bold text-on-surface leading-tight">
-              Futsal<span className="text-primary">Pro</span>
+          
+          {/* Texto debajo del logo */}
+          <div className="text-center space-y-0.5">
+            <h1 className="font-heading text-2xl font-extrabold leading-tight tracking-tight">
+              <span className="text-[#003ec7]">Futsal</span>
+              <span className="text-[#fe6b00]">CTP</span>
             </h1>
-            <p className="text-xs text-on-surface-variant font-body">
-              Panel Administrativo
+            <p className="text-xs text-on-surface-variant font-body font-medium">
+              Panel de Administración
             </p>
           </div>
         </Link>
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 px-4 py-6 overflow-y-auto max-h-[calc(100vh-220px)]">
+      <nav className="flex-1 space-y-1 px-4 py-6 overflow-y-auto max-h-[calc(100vh-320px)]">
         {menuItems.map((item, index) => {
           const isActive = pathname === item.href
           
@@ -103,7 +100,7 @@ export function Sidebar() {
                 'group relative flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300',
                 'before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:rounded-l-xl before:transition-all before:duration-300',
                 isActive
-                  ? 'bg-primary/10 text-primary before:bg-secondary-container shadow-soft'
+                  ? 'bg-primary/10 text-[#003ec7] before:bg-[#fe6b00] shadow-soft'
                   : 'text-on-surface-variant hover:bg-primary/5 hover:text-on-surface before:bg-transparent'
               )}
               style={{
@@ -114,8 +111,8 @@ export function Sidebar() {
               <div className={cn(
                 'relative flex h-10 w-10 items-center justify-center rounded-lg transition-all duration-300',
                 isActive
-                  ? 'bg-gradient-primary text-white shadow-md'
-                  : 'bg-surface-container-high text-on-surface-variant group-hover:bg-primary/10 group-hover:text-primary'
+                  ? 'bg-gradient-to-br from-[#003ec7] to-[#0052ff] text-white shadow-md'
+                  : 'bg-surface-container-high text-on-surface-variant group-hover:bg-primary/10 group-hover:text-[#003ec7]'
               )}>
                 <span className="text-lg">{item.icon}</span>
               </div>
@@ -124,7 +121,7 @@ export function Sidebar() {
               <div className="flex-1 min-w-0">
                 <p className={cn(
                   'font-heading text-sm font-semibold truncate transition-colors',
-                  isActive ? 'text-primary' : 'text-on-surface group-hover:text-on-surface'
+                  isActive ? 'text-[#003ec7]' : 'text-on-surface group-hover:text-on-surface'
                 )}>
                   {item.label}
                 </p>
@@ -139,7 +136,7 @@ export function Sidebar() {
               {/* Active Indicator */}
               {isActive && (
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                  <div className="h-2 w-2 rounded-full bg-secondary-container animate-pulse" />
+                  <div className="h-2 w-2 rounded-full bg-[#fe6b00] animate-pulse" />
                 </div>
               )}
             </Link>
@@ -151,7 +148,7 @@ export function Sidebar() {
       <div className="absolute bottom-0 left-0 right-0 border-t border-outline-variant/20 bg-surface-container-low/50 p-4 backdrop-blur-sm">
         {/* User Info */}
         <div className="mb-3 flex items-center gap-3 px-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-secondary text-white font-heading font-bold text-sm">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#fe6b00] to-[#a04100] text-white font-heading font-bold text-sm">
             N
           </div>
           <div className="flex-1 min-w-0">

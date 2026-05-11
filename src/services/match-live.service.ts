@@ -6,8 +6,16 @@ import { MatchEvent, MatchTimer } from '@/types'
 // EVENTOS DEL PARTIDO
 // ============================================
 export async function addMatchEvent(event: Omit<MatchEvent, 'id' | 'created_at'>): Promise<{ success: boolean; error?: string }> {
+  console.log('📝 [SERVICE] addMatchEvent - Datos recibidos:', {
+    match_id: event.match_id,
+    event_type: event.event_type,
+    team_id: event.team_id,
+    player_name: event.player_name,
+    minute: event.minute,
+  })
+  
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('match_events')
       .insert({
         match_id: event.match_id,
@@ -18,10 +26,23 @@ export async function addMatchEvent(event: Omit<MatchEvent, 'id' | 'created_at'>
         extra_minute: event.extra_minute,
         description: event.description,
       })
+      .select()
 
-    if (error) throw error
+    if (error) {
+      console.error('❌ [SERVICE] Error de Supabase:', error)
+      console.error('❌ [SERVICE] Detalles del error:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint,
+      })
+      throw error
+    }
+    
+    console.log('✅ [SERVICE] Evento registrado exitosamente:', data)
     return { success: true }
   } catch (err) {
+    console.error('❌ [SERVICE] Excepción en addMatchEvent:', err)
     return {
       success: false,
       error: err instanceof Error ? err.message : 'Error al registrar evento',
