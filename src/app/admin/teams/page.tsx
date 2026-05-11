@@ -54,43 +54,43 @@ export default async function TeamsPage() {
   return (
     <div className="min-h-screen bg-surface">
       
-      {/* Header con Gradiente Hero */}
+      {/* Header con Gradiente Hero - RESPONSIVE */}
       <header 
-        className="py-12 px-gutter text-white relative overflow-hidden"
+        className="py-8 md:py-12 px-4 md:px-gutter text-white relative overflow-hidden"
         style={{
           background: 'linear-gradient(135deg, #003ec7 0%, #0052ff 50%, #0038b6 100%)',
           boxShadow: '0 4px 20px rgba(0, 62, 199, 0.3)'
         }}
       >
-        {/* Efectos decorativos */}
+        {/* Efectos decorativos - más pequeños en móvil */}
         <div className="absolute inset-0 opacity-10 pointer-events-none">
-          <div className="absolute top-0 left-0 w-96 h-96 bg-white rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2" />
-          <div className="absolute bottom-0 right-0 w-96 h-96 bg-[#fe6b00] rounded-full blur-3xl translate-x-1/2 translate-y-1/2" />
+          <div className="absolute top-0 left-0 w-48 md:w-96 h-48 md:h-96 bg-white rounded-full blur-2xl md:blur-3xl -translate-x-1/2 -translate-y-1/2" />
+          <div className="absolute bottom-0 right-0 w-48 md:w-96 h-48 md:h-96 bg-[#fe6b00] rounded-full blur-2xl md:blur-3xl translate-x-1/2 translate-y-1/2" />
         </div>
         
         <div className="container-custom relative z-10">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 md:gap-6">
             <div>
               <Link 
                 href="/admin"
-                className="inline-flex items-center gap-2 text-blue-100 hover:text-white transition-colors mb-4 font-heading text-sm font-semibold"
+                className="inline-flex items-center gap-2 text-blue-100 hover:text-white transition-colors mb-3 md:mb-4 font-heading text-sm font-semibold"
               >
                 <span>←</span>
                 Volver al Dashboard
               </Link>
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-3 tracking-tight font-heading">
+              <h1 className="text-3xl md:text-4xl lg:text-5xl font-extrabold mb-2 md:mb-3 tracking-tight font-heading">
                 👥 Gestión de Equipos
               </h1>
-              <p className="text-lg md:text-xl text-blue-100 max-w-xl font-medium font-body">
+              <p className="text-base md:text-lg text-blue-100 max-w-xl font-medium font-body">
                 Registra y administra los equipos participantes.
-                <br />
+                <br className="hidden sm:inline" />
                 <span className="text-sm opacity-90">Asigna secciones, capitanes y gestiona jugadores.</span>
               </p>
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-2 md:gap-3">
               <Link 
                 href="/admin/teams#import"
-                className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-heading font-semibold text-label-caps rounded-full transition-all duration-300 border border-white/30 no-underline"
+                className="inline-flex items-center gap-2 px-4 md:px-5 py-2 md:py-2.5 bg-white/10 hover:bg-white/20 text-white font-heading font-semibold text-label-caps rounded-full transition-all duration-300 border border-white/30 no-underline text-sm"
               >
                 <span>📥</span>
                 Importar
@@ -101,13 +101,13 @@ export default async function TeamsPage() {
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="container-custom py-12 px-gutter space-y-12">
+      {/* Main Content - RESPONSIVE */}
+      <main className="container-custom py-6 md:py-12 px-4 md:px-gutter space-y-8 md:space-y-12">
         
         {/* Stats Bar */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
           {/* Total Teams Card */}
-          <AnimatedCard className="p-6" animation="slide-up" delay={0.1}>
+          <AnimatedCard className="p-4 md:p-6" animation="slide-up" delay={0.1}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-heading text-label-caps text-on-surface-variant mb-2">
@@ -120,7 +120,7 @@ export default async function TeamsPage() {
                   Activos en el sistema
                 </p>
               </div>
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-primary text-3xl text-white shadow-glow">
+              <div className="flex h-14 w-14 md:h-16 md:w-16 items-center justify-center rounded-xl bg-gradient-primary text-2xl md:text-3xl text-white shadow-glow flex-shrink-0">
                 👥
               </div>
             </div>
@@ -142,7 +142,7 @@ export default async function TeamsPage() {
           </AnimatedCard>
 
           {/* Teams in Tournaments Card */}
-          <AnimatedCard className="p-6" animation="slide-up" delay={0.2}>
+          <AnimatedCard className="p-4 md:p-6" animation="slide-up" delay={0.2}>
             <div className="flex items-start justify-between">
               <div>
                 <p className="font-heading text-label-caps text-on-surface-variant mb-2">
@@ -155,7 +155,7 @@ export default async function TeamsPage() {
                   Equipos confirmados
                 </p>
               </div>
-              <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-gradient-secondary text-3xl text-white shadow-glow-orange">
+              <div className="flex h-14 w-14 md:h-16 md:w-16 items-center justify-center rounded-xl bg-gradient-secondary text-2xl md:text-3xl text-white shadow-glow-orange flex-shrink-0">
                 🏆
               </div>
             </div>
@@ -172,9 +172,9 @@ export default async function TeamsPage() {
         </div>
 
         {/* Team Form Section */}
-        <AnimatedCard className="p-8" animation="slide-up" delay={0.3}>
-          <div className="flex items-center gap-3 mb-6">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-2xl">
+        <AnimatedCard className="p-4 md:p-8" animation="slide-up" delay={0.3}>
+          <div className="flex flex-col md:flex-row items-start md:items-center gap-3 md:gap-4 mb-5 md:mb-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-2xl flex-shrink-0">
               ✏️
             </div>
             <div>
@@ -186,17 +186,17 @@ export default async function TeamsPage() {
               </p>
             </div>
           </div>
-          <div className="pl-15">
+          <div className="pl-4 md:pl-15">
             <TeamForm />
           </div>
         </AnimatedCard>
 
         {/* Teams Table Section */}
         <AnimatedCard className="overflow-hidden" animation="slide-up" delay={0.4}>
-          <div className="p-6 border-b border-outline-variant/20">
+          <div className="p-4 md:p-6 border-b border-outline-variant/20">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-xl">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-xl flex-shrink-0">
                   📋
                 </div>
                 <div>
@@ -209,8 +209,8 @@ export default async function TeamsPage() {
                 </div>
               </div>
               
-              {/* Quick Filters */}
-              <div className="flex items-center gap-2">
+              {/* Quick Filters - wrap en móvil */}
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge variant="outline" className="font-heading text-label-caps text-xs cursor-pointer hover:bg-primary/5 transition-colors">
                   Todos
                 </Badge>
@@ -224,16 +224,16 @@ export default async function TeamsPage() {
             </div>
           </div>
           
-          <div className="p-6">
+          <div className="p-4 md:p-6 overflow-x-auto">
             <TeamsTable teams={teamsWithTournament} />
           </div>
         </AnimatedCard>
 
       </main>
 
-      {/* Footer Tip */}
-      <div className="container-custom px-gutter py-6">
-        <div className="flex items-center justify-center gap-2 text-on-surface-variant font-body text-body-md">
+      {/* Footer Tip - RESPONSIVE */}
+      <div className="container-custom px-4 md:px-gutter py-4 md:py-6">
+        <div className="flex items-center justify-center gap-2 text-on-surface-variant font-body text-body-md text-center">
           <span>💡</span>
           <span>
             Tip: Los equipos deben tener al menos 5 jugadores registrados para poder participar en un torneo.

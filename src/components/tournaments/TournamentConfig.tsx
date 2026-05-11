@@ -191,9 +191,9 @@ export function TournamentConfig({
       unbalanced: boolean
     }> = {
       8:  { qualified: 4, type: 'top2',              unbalanced: false },
-      9:  { qualified: 4, type: 'top1_best2',        unbalanced: false }, // ✅ Todos juegan 2 partidos
+      9:  { qualified: 4, type: 'top1_best2',        unbalanced: false },
       10: { qualified: 4, type: 'top2',              unbalanced: false },
-      11: { qualified: 4, type: 'top1_best2',        unbalanced: true  }, // ⚠️ Grupo C juega 1 menos
+      11: { qualified: 4, type: 'top1_best2',        unbalanced: true  },
       12: { qualified: 4, type: 'top1_best2',        unbalanced: false },
       13: { qualified: 4, type: 'top1',              unbalanced: true  },
       14: { qualified: 8, type: 'top1_best2_best3',  unbalanced: true  },
@@ -226,27 +226,41 @@ export function TournamentConfig({
         </div>
       )}
 
+      {/* ✅ Tabs con scroll horizontal en móvil */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-6">
-          <TabsTrigger value="teams">👥 Equipos ({registeredTeams.length})</TabsTrigger>
-          <TabsTrigger value="standings" disabled={tournament.status !== 'active'}>
-            📊 Posiciones
-          </TabsTrigger>
-          <TabsTrigger value="matches" disabled={tournament.status !== 'active'}>
-            ⚽ Partidos {matches.length > 0 && `(${matches.length})`}
-          </TabsTrigger>
-          <TabsTrigger value="groups" disabled={!canStartTournament}>
-            👁️ Vista Previa
-          </TabsTrigger>
-          <TabsTrigger value="settings" disabled={tournament.status !== 'draft'}>
-            ⚙️ Configuración
-          </TabsTrigger>
-          {knockoutGenerated && (
-            <TabsTrigger value="knockout" className="bg-orange-100 text-orange-700 data-[state=active]:bg-orange-500 data-[state=active]:text-white">
-              🏆 Fase Eliminatoria
+        {/* TabsList: scroll horizontal en móvil, grid en desktop */}
+        <div className="overflow-x-auto pb-2 lg:pb-0">
+          <TabsList className="grid w-full grid-cols-5 lg:grid-cols-6 min-w-full lg:min-w-0">
+            <TabsTrigger value="teams" className="text-xs lg:text-sm px-2 lg:px-3 py-1.5">
+              <span className="hidden sm:inline">👥 Equipos</span>
+              <span className="sm:hidden">👥</span>
+              <span className="hidden md:inline"> ({registeredTeams.length})</span>
             </TabsTrigger>
-          )}
-        </TabsList>
+            <TabsTrigger value="standings" disabled={tournament.status !== 'active'} className="text-xs lg:text-sm px-2 lg:px-3 py-1.5">
+              <span className="hidden sm:inline">📊 Posiciones</span>
+              <span className="sm:hidden">📊</span>
+            </TabsTrigger>
+            <TabsTrigger value="matches" disabled={tournament.status !== 'active'} className="text-xs lg:text-sm px-2 lg:px-3 py-1.5">
+              <span className="hidden sm:inline">⚽ Partidos</span>
+              <span className="sm:hidden">⚽</span>
+              {matches.length > 0 && <span className="hidden lg:inline"> ({matches.length})</span>}
+            </TabsTrigger>
+            <TabsTrigger value="groups" disabled={!canStartTournament} className="text-xs lg:text-sm px-2 lg:px-3 py-1.5">
+              <span className="hidden sm:inline">👁️ Vista Previa</span>
+              <span className="sm:hidden">👁️</span>
+            </TabsTrigger>
+            <TabsTrigger value="settings" disabled={tournament.status !== 'draft'} className="text-xs lg:text-sm px-2 lg:px-3 py-1.5">
+              <span className="hidden sm:inline">⚙️ Configuración</span>
+              <span className="sm:hidden">⚙️</span>
+            </TabsTrigger>
+            {knockoutGenerated && (
+              <TabsTrigger value="knockout" className="bg-orange-100 text-orange-700 data-[state=active]:bg-orange-500 data-[state=active]:text-white text-xs lg:text-sm px-2 lg:px-3 py-1.5">
+                <span className="hidden md:inline">🏆 Fase Eliminatoria</span>
+                <span className="md:hidden">🏆</span>
+              </TabsTrigger>
+            )}
+          </TabsList>
+        </div>
 
         {/* Tab: Equipos */}
         <TabsContent value="teams" className="space-y-4">
@@ -285,7 +299,6 @@ export function TournamentConfig({
                   <p className="text-muted-foreground">Cargando tabla...</p>
                 </div>
               ) : (
-                // ✅ PASAR props de clasificación a StandingsTable
                 <StandingsTable 
                   standings={standings}
                   qualifiedCount={getQualifiedCount()}
@@ -301,7 +314,7 @@ export function TournamentConfig({
         <TabsContent value="matches" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <CardTitle>⚽ Partidos del Torneo</CardTitle>
                   <CardDescription>
@@ -313,14 +326,14 @@ export function TournamentConfig({
                   <Button
                     onClick={handleGenerateKnockout}
                     disabled={loading === 'knockout'}
-                    className="bg-purple-600 hover:bg-purple-700"
+                    className="bg-purple-600 hover:bg-purple-700 w-full sm:w-auto"
                   >
                     {loading === 'knockout' ? 'Generando...' : '🎲 Generar Fase Eliminatoria'}
                   </Button>
                 )}
 
                 {knockoutGenerated && (
-                  <Badge className="bg-purple-500 gap-2 py-2">
+                  <Badge className="bg-purple-500 gap-2 py-2 flex-wrap">
                     ✅ Fase Generada
                     <Button 
                       size="sm" 
@@ -365,8 +378,8 @@ export function TournamentConfig({
                 teams={teamsList}
               />
             </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button variant="outline" onClick={() => setActiveTab('teams')}>
+            <CardFooter className="flex flex-col sm:flex-row gap-3">
+              <Button variant="outline" onClick={() => setActiveTab('teams')} className="w-full sm:w-auto">
                 ← Volver a Equipos
               </Button>
               <Button
@@ -376,7 +389,7 @@ export function TournamentConfig({
                   loading === 'start' ||
                   tournament.status === 'active'
                 }
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 w-full sm:w-auto"
               >
                 {loading === 'start'
                   ? 'Iniciando...'
